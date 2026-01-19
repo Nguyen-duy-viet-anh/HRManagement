@@ -3,135 +3,109 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth; // Gọi thư viện xác thực của Laravel
+use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use App\Models\Company;
 use App\Models\Attendance;
 
 class AuthController extends Controller
 {
-    // Hàm 1: Chỉ đơn giản là hiện ra cái form đăng nhập
     public function showLogin() {
-        // Nếu đăng nhập rồi thì đá sang trang dashboard luôn, ko cần đăng nhập lại
-        if (Auth::check()) {
-            return redirect()->route('dashboard');
-        }
+        if (Auth::check()) return redirect()->route('dashboard');
         return view('login');
     }
 
-    // Hàm 2: Xử lý khi bấm nút "Đăng nhập"
     public function login(Request $request) {
-        // 1. Lấy email và password người dùng nhập
         $credentials = $request->only('email', 'password');
 
-        // 2. Auth::attempt sẽ tự động mã hóa pass và so sánh với DB
         if (Auth::attempt($credentials)) {
-            // Nếu ĐÚNG: Tạo session đăng nhập và chuyển hướng
-            return redirect()->route('dashboard')->with('success', 'Đăng nhập thành công!');
+            $user = Auth::user();
+            if ($user->role == 2) {
+                return redirect()->intended('dashboard');
+            }
+
+            // Role 0 và Role 1 vẫn hiện thông báo như cũ
+            return redirect()->intended('dashboard');
         }
 
-        // Nếu SAI: Quay lại trang cũ và báo lỗi
-        return back()->with('error', 'Email hoặc mật khẩu sai rồi!');
+        return back()->with('error', 'Email hoặc mật khẩu không chính xác.');
     }
 
-    // Hàm 3: Đăng xuất
     public function logout() {
-        Auth::logout(); // Xóa session
-        return redirect()->route('login'); // Quay về trang login
+        Auth::logout();
+        return redirect()->route('login');
     }
     
     public function dashboard() {
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
+        $today = date('Y-m-d');
+        $currentMonth = date('m');
+        $currentYear = date('Y');
 
-        // --- KHỞI TẠO BIẾN MẶC ĐỊNH ---
+        // 1. Khởi tạo dữ liệu mặc định để tránh lỗi Undefined variable
         $total_companies = 0;
         $total_users = 0;
         $present_today = 0;
         $total_estimated_salary = 0;
         $todayAttendance = null;
-        $my_work_days = 0; 
+        $attendances = collect(); // Tạo collection rỗng tránh lỗi vòng lặp foreach
 
-        // 1. TÍNH SỐ NGÀY CÔNG CỦA CHÍNH MÌNH (Ai cũng cần)
-        if ($user->company_id) {
-            $my_work_days = \App\Models\Attendance::where('user_id', $user->id)
-                                ->whereYear('date', date('Y'))
-                                ->whereMonth('date', date('m'))
-                                ->where('status', 1)
-                                ->count();
+        // 2. Thống kê theo Vai trò
+        if ($user->role == 0) { // ADMIN TỔNG
+            $total_companies = Company::count();
+            $total_users = User::count();
+            $present_today = Attendance::where('date', $today)->where('status', 1)->count();
+            
+            $attendances = Attendance::whereYear('date', $currentYear)
+                ->whereMonth('date', $currentMonth)
+                ->where('status', 1)
+                ->with(['user.company']) // Nhớ thêm quan hệ này trong Model Attendance
+                ->get();
+
+        } elseif ($user->role == 1) { // QUẢN LÝ CÔNG TY
+            $total_companies = 1;
+            $total_users = User::where('company_id', $user->company_id)->count();
+            $present_today = Attendance::where('company_id', $user->company_id)
+                ->where('date', $today)
+                ->where('status', 1)
+                ->count();
+
+            $attendances = Attendance::where('company_id', $user->company_id)
+                ->whereYear('date', $currentYear)
+                ->whereMonth('date', $currentMonth)
+                ->where('status', 1)
+                ->with(['user.company'])
+                ->get();
         }
 
-        // 2. LOGIC CHO QUẢN LÝ (Role 0 & 1)
-        if ($user->role == 0 || $user->role == 1) {
-            
-            // --- TRƯỜNG HỢP ADMIN TỔNG (Role 0) ---
-            // Xem tất cả, không giới hạn
-            if ($user->role == 0) {
-                $total_companies = \App\Models\Company::count();
-                $total_users = \App\Models\User::count();
-                
-                // Đếm tất cả người đi làm
-                $present_today = \App\Models\Attendance::where('date', date('Y-m-d'))
-                                        ->where('status', 1)->count();
-                
-                // Lấy tất cả chấm công để tính lương
-                $attendances = \App\Models\Attendance::whereYear('date', date('Y'))
-                                    ->whereMonth('date', date('m'))
-                                    ->where('status', 1)
-                                    ->with('user.company')->get();
-            }
-
-            // --- TRƯỜNG HỢP QUẢN LÝ CÔNG TY (Role 1) ---
-            // Chỉ xem dữ liệu của công ty mình
-            if ($user->role == 1) {
-                // Tổng công ty luôn là 1 (chính là công ty của họ)
-                $total_companies = 1; 
-
-                // Chỉ đếm nhân viên CÙNG công ty
-                $total_users = \App\Models\User::where('company_id', $user->company_id)->count();
-
-                // Chỉ đếm người đi làm thuộc công ty này
-                // Dùng whereHas để lọc qua bảng user
-                $present_today = \App\Models\Attendance::whereHas('user', function($q) use ($user) {
-                                            $q->where('company_id', $user->company_id);
-                                        })
-                                        ->where('date', date('Y-m-d'))
-                                        ->where('status', 1)
-                                        ->count();
-
-                // Chỉ lấy chấm công của nhân viên công ty này để tính lương
-                $attendances = \App\Models\Attendance::whereHas('user', function($q) use ($user) {
-                                            $q->where('company_id', $user->company_id);
-                                        })
-                                        ->whereYear('date', date('Y'))
-                                        ->whereMonth('date', date('m'))
-                                        ->where('status', 1)
-                                        ->with('user.company')->get();
-            }
-
-            // TÍNH LƯƠNG (Dùng chung logic cho cả 2 role sau khi đã lọc xong biến $attendances)
+        // 3. Tính toán lương dự kiến (Chỉ chạy nếu có dữ liệu chấm công)
+        if ($attendances->isNotEmpty()) {
             foreach($attendances as $att) {
                 if($att->user && $att->user->company && $att->user->company->standard_working_days > 0) {
+                    // $DailySalary = \frac{BaseSalary}{StandardWorkingDays}$
                     $daily_salary = $att->user->base_salary / $att->user->company->standard_working_days;
                     $total_estimated_salary += $daily_salary;
                 }
             }
         }
 
-        // 3. LOGIC CHO NHÂN VIÊN (Role 2)
+        // 4. Riêng cho Nhân viên (Role 2)
         if ($user->role == 2) {
-            $todayAttendance = \App\Models\Attendance::where('user_id', $user->id)
-                                ->where('date', date('Y-m-d'))
-                                ->first();
+            $todayAttendance = Attendance::where('user_id', $user->id)
+                ->where('date', $today)
+                ->first();
         }
 
+        // 5. Số ngày công tháng này
+        $my_work_days = Attendance::where('user_id', $user->id)
+            ->whereYear('date', $currentYear)
+            ->whereMonth('date', $currentMonth)
+            ->where('status', 1)
+            ->count();
+
         return view('dashboard', compact(
-            'total_companies', 
-            'total_users', 
-            'present_today', 
-            'total_estimated_salary', 
-            'todayAttendance',
-            'my_work_days'
+            'total_companies', 'total_users', 'present_today', 
+            'total_estimated_salary', 'todayAttendance', 'my_work_days'
         ));
     }
-    
 }

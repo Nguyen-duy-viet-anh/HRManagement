@@ -11,20 +11,39 @@ use Illuminate\Support\Facades\Auth;
 class UserController extends Controller
 {
     // 1. XEM DANH SÁCH (Đã phân quyền)
-    public function index()
-    {
-        $user = Auth::user();
+    public function index(Request $request)
+{
+    $user = Auth::user();
+    $search = $request->input('search');
+    $company_id = $request->input('company_id'); // Lấy id công ty từ request
 
-        if ($user->role == 1) {
-            // Role 1: Chỉ lấy nhân viên thuộc công ty mình
-            $users = User::where('company_id', $user->company_id)->paginate(10);
-        } else {
-            // Role 0: Lấy tất cả (kèm thông tin công ty để hiển thị)
-            $users = User::with('company')->paginate(10);
+    $query = User::with('company');
+
+    // Phân quyền
+    if ($user->role == 1) {
+        $query->where('company_id', $user->company_id);
+    } else {
+        // Nếu là Admin và có chọn công ty cụ thể
+        if ($company_id) {
+            $query->where('company_id', $company_id);
         }
-
-        return view('users.index', compact('users'));
     }
+
+    // Tìm kiếm theo tên/email
+    if ($search) {
+        $query->where(function ($q) use ($search) {
+            $q->where('name', 'LIKE', "%{$search}%")
+              ->orWhere('email', 'LIKE', "%{$search}%");
+        });
+    }
+
+    $users = $query->orderBy('name', 'asc')->paginate(20);
+    
+    // Lấy danh sách công ty cho Admin lọc (chỉ lấy ID và Name để nhẹ máy)
+    $companies = Company::select('id', 'name')->get();
+
+    return view('users.index', compact('users', 'search', 'companies', 'company_id'));
+}
 
     // 2. FORM THÊM MỚI (Chặn chọn công ty lung tung)
     public function create()

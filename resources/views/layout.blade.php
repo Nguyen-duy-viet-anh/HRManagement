@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý Nhân sự</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 shadow-sm">
@@ -69,25 +70,48 @@
 
                 <ul class="navbar-nav ms-auto align-items-center">
                     @auth
-                        <li class="nav-item me-3 text-light">
-                            <span class="opacity-75">Xin chào,</span> 
-                            <span class="fw-bold">{{ Auth::user()->name }}</span>
+                        <li class="nav-item me-3 d-flex align-items-center text-light">
+                            @php
+                                $user = Auth::user();
+                                $avatar = $user->avatar;
+                                
+                                // Kiểm tra loại ảnh
+                                if (filter_var($avatar, FILTER_VALIDATE_URL)) {
+                                    // 1. Ảnh từ Faker (URL trực tiếp)
+                                    $userAvatar = $avatar;
+                                } elseif ($avatar) {
+                                    // 2. Ảnh tự thêm (Lưu trong storage/app/public)
+                                    $userAvatar = asset('storage/' . $avatar);
+                                } else {
+                                    // 3. Không có ảnh -> Dùng ảnh mặc định theo tên
+                                    $userAvatar = 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&background=random&color=fff';
+                                }
+                            @endphp
+
+                            <img src="{{ $userAvatar }}" 
+                                width="32" height="32" 
+                                class="rounded-circle me-2 border border-white shadow-sm" 
+                                style="object-fit: cover;"
+                                onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode($user->name) }}&background=ccc&color=333'">
                             
-                            @if(Auth::user()->role == 0)
-                                <span class="badge bg-danger border border-light ms-1">Admin</span>
-                            @elseif(Auth::user()->role == 1)
-                                <span class="badge bg-warning text-dark border border-light ms-1">Quản lý</span>
+                            <div>
+                                <span class="opacity-75 small d-block" style="line-height: 1;">Xin chào,</span>
+                                <span class="fw-bold">{{ $user->name }}</span>
+                            </div>
+
+                            @if($user->role == 0)
+                                <span class="badge bg-danger ms-2">Admin</span>
+                            @elseif($user->role == 1)
+                                <span class="badge bg-warning text-dark ms-2">Quản lý</span>
                             @else
-                                <span class="badge bg-info text-dark border border-light ms-1">Nhân viên</span>
+                                <span class="badge bg-info text-dark ms-2">Nhân viên</span>
                             @endif
                         </li>
 
                         <li class="nav-item">
                             <form action="{{ route('logout') }}" method="POST" class="d-inline">
                                 @csrf
-                                <button type="submit" class="btn btn-light btn-sm fw-bold text-primary">
-                                    Đăng xuất
-                                </button>
+                                <button type="submit" class="btn btn-light btn-sm fw-bold text-primary">Đăng xuất</button>
                             </form>
                         </li>
                     @else

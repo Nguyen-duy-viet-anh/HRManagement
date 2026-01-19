@@ -67,26 +67,25 @@ class AttendanceController extends Controller
     }
     // Hàm này dành cho Nhân viên tự bấm nút
     public function selfCheckIn()
-    {
-        $user_id = \Illuminate\Support\Facades\Auth::id();
-        $date = date('Y-m-d'); // Lấy ngày hôm nay
+{
+    $user = \Illuminate\Support\Facades\Auth::user(); // Lấy toàn bộ thông tin User
+    $date = date('Y-m-d');
 
-        // 1. Kiểm tra xem hôm nay đã chấm chưa?
-        $check = Attendance::where('user_id', $user_id)
-                           ->where('date', $date)
-                           ->first();
+    // 1. Kiểm tra xem hôm nay đã chấm chưa?
+    $check = Attendance::where('user_id', $user->id)
+                       ->where('date', $date)
+                       ->first();
 
-        if ($check) {
-            return back()->with('error', 'Hôm nay bạn đã chấm công rồi!');
-        }
-
-        // 2. Nếu chưa -> Tạo mới
-        Attendance::create([
-            'user_id' => $user_id,
-            'date' => $date,
-            'status' => 1 // 1 là Có mặt
-        ]);
-
-        return back()->with('success', '✅ Chấm công thành công! Chúc bạn làm việc vui vẻ.');
+    if ($check) {
+        return back()->with('error', 'Hôm nay bạn đã chấm công rồi!');
     }
+
+    // 2. Thêm company_id vào lệnh tạo mới
+    Attendance::create([
+        'user_id'    => $user->id,
+        'company_id' => $user->company_id, // BẮT BUỘC phải có dòng này
+        'date'       => $date,
+        'status'     => 1 
+    ]);
+}
 }

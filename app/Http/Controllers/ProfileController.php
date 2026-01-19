@@ -18,31 +18,48 @@ class ProfileController extends Controller
 
     // 2. Cập nhật thông tin (Chặn sửa lương, role)
     public function update(Request $request)
-    {
-        $user = Auth::user();
-        
-        // Chỉ cho phép sửa Tên, Email, Mật khẩu
-        $request->validate([
-            'name' => 'required',
-            'email' => 'required|email|unique:users,email,'.$user->id,
-            'password' => 'nullable|min:6'
-        ]);
+{
+    $user = \App\Models\User::find(\Illuminate\Support\Facades\Auth::id());
 
-        $data = [
-            'name' => $request->name,
-            'email' => $request->email,
-            // Không có dòng base_salary hay role ở đây => An toàn
-        ];
+    // 1. Validate dữ liệu đầu vào
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|unique:users,email,' . $user->id,
+        'phone' => 'nullable|string|max:15',
+        'address' => 'nullable|string|max:500',
+        'birthday' => 'nullable|date',
+        'gender' => 'required|in:male,female,other',
+        'avatar' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+        'password' => 'nullable|min:6|confirmed',
+    ], [
+        'email.unique' => 'Email này đã có người sử dụng.',
+        'password.confirmed' => 'Mật khẩu xác nhận không khớp.'
+    ]);
 
-        if ($request->password) {
-            $data['password'] = Hash::make($request->password);
-        }
+    // 2. Cập nhật các cột thông tin cá nhân
+    $user->name = $request->name;
+    $user->email = $request->email;
+    $user->phone = $request->phone;
+    $user->address = $request->address;
+    $user->birthday = $request->birthday;
+    $user->gender = $request->gender;
 
-        User::where('id', $user->id)->update($data);
-
-        return back()->with('success', 'Cập nhật hồ sơ thành công!');
+    // 3. Xử lý Upload ảnh (nếu có)
+    if ($request->hasFile('avatar')) {
+        // Lưu file vào storage/app/public/avatars
+        $path = $request->file('avatar')->store('avatars', 'public');
+        $user->avatar = $path;
     }
 
+    // 4. Xử lý đổi mật khẩu (chỉ đổi nếu người dùng nhập)
+    if ($request->filled('password')) {
+        $user->password = bcrypt($request->password);
+    }
+
+    $user->save();
+
+    return back()->with('success', 'Hồ sơ của bạn đã được cập nhật thành công!');
+}
     // 3. Xem danh sách đồng nghiệp (Ẩn lương)
     public function colleagues()
     {

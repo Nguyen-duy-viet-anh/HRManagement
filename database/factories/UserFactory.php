@@ -3,42 +3,34 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
- */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
-    protected static ?string $password;
-
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
-    public function definition(): array
+    public function definition()
     {
+        // Tạo một ID ngẫu nhiên để ảnh không bị trùng lặp giữa các User
+        $randomId = $this->faker->numberBetween(1, 1000);
+        $gender = $this->faker->randomElement(['male', 'female']);
+
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
+            'name' => $this->faker->name($gender),
+            'email' => $this->faker->unique()->safeEmail(),
+            'password' => bcrypt('123456'), 
+            'role' => 2,
+            'status' => 1,
+            'company_id' => null, 
+            'base_salary' => $this->faker->numberBetween(8000000, 20000000),
+            
+            // --- THÊM AVATAR NGẪU NHIÊN ---
+            // Sử dụng Picsum để lấy ảnh chân dung ngẫu nhiên
+            'avatar' => "https://picsum.photos/200/200?random={$randomId}",
+            
+            // --- MỞ LẠI CÁC CỘT CÁ NHÂN ---
+            'phone' => $this->faker->phoneNumber(),
+            'address' => $this->faker->address(),
+            'birthday' => $this->faker->date('Y-m-d', '-20 years'), // Sinh nhật cách đây tầm 20 năm
+            'gender' => $gender,
         ];
-    }
-
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
     }
 }

@@ -1,82 +1,125 @@
 @extends('layout')
 
 @section('content')
-<div class="card shadow">
-    <div class="card-header bg-success text-white">
-        <h5 class="m-0">BẢNG TÍNH LƯƠNG</h5>
-    </div>
-    <div class="card-body">
-        
-        <form id="form-salary" action="{{ route('salary.index') }}" method="GET" class="row mb-4 p-3 bg-light border rounded">
-            
-            <div class="col-md-4">
-                <label class="fw-bold">Chọn Tháng:</label>
-                <input type="month" name="month" class="form-control" value="{{ $month ?? date('Y-m') }}">
-            </div>
-
-            <div class="col-md-4">
-                <label class="fw-bold">Chọn Công ty:</label>
-                <select name="company_id" class="form-select" onchange="this.form.submit()">
-                    <option value="">-- Chọn công ty --</option>
-                    @foreach($companies as $company)
-                        <option value="{{ $company->id }}" {{ (isset($company_id) && $company_id == $company->id) ? 'selected' : '' }}>
-                            {{ $company->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div class="col-md-4 d-flex align-items-end gap-2">
-                <button type="button" 
-                        onclick="document.getElementById('form-salary').submit();" 
-                        class="btn btn-success flex-grow-1">
-                    Xem bảng lương
-                </button>
-                
-                @if(isset($users) && count($users) > 0)
-                    <a href="{{ route('salary.export', ['month' => $month ?? date('Y-m'), 'company_id' => $company_id]) }}" 
-                       class="btn btn-warning fw-bold text-dark">
-                       Xuất Excel
-                    </a>
+<div class="container-fluid py-4">
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-header bg-success text-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="m-0 fw-bold">
+                    <i class="bi bi-cash-stack me-2"></i>QUẢN LÝ BẢNG LƯƠNG
+                </h5>
+                @if(isset($month))
+                    <span class="badge bg-white text-success px-3 py-2 fw-bold">
+                        Tháng {{ \Carbon\Carbon::parse($month)->format('m/Y') }}
+                    </span>
                 @endif
             </div>
-        </form>
-
-        @if(isset($users) && count($users) > 0)
-        <div class="table-responsive">
-            <table class="table table-bordered table-striped">
-                <thead class="table-dark text-center">
-                    <tr>
-                        <th>ID</th>
-                        <th>Họ tên</th>
-                        <th>Lương CB</th>
-                        <th>Ngày công</th>
-                        <th>Thực lĩnh</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($users as $user)
-                    <tr>
-                        <td class="text-center">{{ $user->id }}</td>
-                        <td>
-                            <strong>{{ $user->name }}</strong><br>
-                            <small>{{ $user->email }}</small>
-                        </td>
-                        <td class="text-end">{{ number_format($user->base_salary) }}</td>
-                        <td class="text-center fw-bold">{{ $user->work_days }}</td>
-                        <td class="text-end fw-bold text-success">{{ number_format($user->total_salary) }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
         </div>
-        @else
-            @if(request('company_id'))
-                <div class="alert alert-warning text-center">Công ty này chưa chấm công tháng này!</div>
+
+        <div class="card-body p-4">
+            <form id="form-salary" action="{{ route('salary.index') }}" method="GET" class="row g-3 mb-4 p-3 bg-light rounded-3 shadow-sm align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Chọn Tháng</label>
+                    <input type="month" name="month" class="form-control border-0 shadow-sm" value="{{ $month ?? date('Y-m') }}">
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Chọn Công ty</label>
+                    <select name="company_id" class="form-select border-0 shadow-sm" onchange="this.form.submit()">
+                        <option value="">-- Tất cả công ty --</option>
+                        @foreach($companies as $company)
+                            <option value="{{ $company->id }}" {{ (isset($company_id) && $company_id == $company->id) ? 'selected' : '' }}>
+                                {{ $company->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-md-5 d-flex gap-2">
+                    <button type="submit" class="btn btn-success flex-grow-1 fw-bold shadow-sm">
+                        <i class="bi bi-search me-1"></i> XEM BẢNG LƯƠNG
+                    </button>
+                    
+                    @if(isset($users) && count($users) > 0)
+                        <a href="{{ route('salary.export', ['month' => $month ?? date('Y-m'), 'company_id' => $company_id]) }}" 
+                           class="btn btn-outline-dark fw-bold shadow-sm">
+                            <i class="bi bi-file-earmark-excel me-1"></i> XUẤT EXCEL
+                        </a>
+                    @endif
+                </div>
+            </form>
+
+            @if(isset($users) && count($users) > 0)
+            <div class="table-responsive rounded-3 border">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-dark text-white">
+                        <tr>
+                            <th class="text-center py-3">ID</th>
+                            <th class="py-3">Họ và Tên</th>
+                            <th class="text-end py-3">Lương Cơ Bản</th>
+                            <th class="text-center py-3">Ngày Công</th>
+                            <th class="text-end py-3" style="min-width: 150px;">Thực Lĩnh</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($users as $user)
+                        <tr>
+                            <td class="text-center text-muted fw-bold">
+                                {{ $loop->iteration }}
+                            </td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ $user->name }}</div>
+                                <div class="small text-muted">{{ $user->email }}</div>
+                            </td>
+                            <td class="text-end fw-semibold text-secondary">
+                                {{ number_format($user->base_salary) }} <small>đ</small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-soft-info text-info rounded-pill px-3">
+                                    {{ $user->work_days }} ngày
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <span class="fw-bold text-success fs-5">
+                                    {{ number_format($user->total_salary) }}
+                                </span>
+                                <small class="text-success">đ</small>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-3 text-muted small italic">
+                * Công thức tính: (Lương cơ bản / Ngày công chuẩn của công ty) x Số ngày làm việc thực tế.
+            </div>
+
             @else
-                <div class="alert alert-info text-center">Hãy chọn <b>Tháng</b> và <b>Công ty</b> để xem lương.</div>
+                <div class="text-center py-5">
+                    <div class="mb-3">
+                        <i class="bi bi-wallet2 text-light" style="font-size: 4rem;"></i>
+                    </div>
+                    @if(request('company_id'))
+                        <h6 class="text-muted">Chưa có dữ liệu chấm công hoặc lương cho lựa chọn này.</h6>
+                    @else
+                        <h6 class="text-success fw-bold">Vui lòng chọn Công ty để xem chi tiết bảng lương.</h6>
+                    @endif
+                </div>
             @endif
-        @endif
+        </div>
     </div>
 </div>
+
+<style>
+    .bg-dark { background-color: #2d3436 !important; }
+    .bg-soft-info { background-color: #e0f7fa; }
+    .text-info { color: #00acc1 !important; }
+    .table-hover tbody tr:hover { background-color: #f1f8e9; transition: 0.3s; }
+    .fs-5 { font-size: 1.1rem !important; }
+    .form-control:focus, .form-select:focus {
+        box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25);
+        border-color: #198754;
+    }
+</style>
 @endsection

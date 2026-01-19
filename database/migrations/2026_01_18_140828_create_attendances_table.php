@@ -12,13 +12,16 @@ return new class extends Migration
     public function up(): void {
     Schema::create('attendances', function (Blueprint $table) {
         $table->id();
-        $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-        // Lưu thêm company_id để tiện thống kê
-        $table->foreignId('company_id')->constrained('companies')->onDelete('cascade');
-        $table->date('date');
-        $table->tinyInteger('status')->default(1); // 1: Có mặt
         
-        // 1 người ko thể chấm công 2 lần trong 1 ngày
+        // SỬA: Phải dùng foreignUuid vì bảng users đã dùng UUID
+        $table->foreignUuid('user_id')->constrained('users')->onDelete('cascade');
+        
+        // GIỮ NGUYÊN: Vì bảng companies đã dùng UUID
+        $table->foreignUuid('company_id')->constrained('companies')->onDelete('cascade');
+        
+        $table->date('date');
+        $table->tinyInteger('status')->default(1); 
+        
         $table->unique(['user_id', 'date']);
         $table->timestamps();
     });

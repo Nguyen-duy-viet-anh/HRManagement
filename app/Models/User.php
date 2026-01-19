@@ -5,10 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str; // Đừng quên dòng này
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
+
+    // --- CẤU HÌNH UUID CHO USER ---
+    public $incrementing = false; // Tắt tự động tăng ID
+    protected $keyType = 'string'; // Khai báo ID là kiểu chuỗi
 
     protected $fillable = [
         'name', 'email', 'password', 'role', 'company_id', 
@@ -16,12 +21,22 @@ class User extends Authenticatable
         'base_salary', 'status', 'avatar'
     ];
 
-    // Ý nghĩa: 1 Nhân viên thuộc về 1 Công ty
+    // Tự động tạo UUID khi tạo User mới
+    protected static function boot()
+    {
+        parent::boot();
+        static::creating(function ($model) {
+            if (empty($model->{$model->getKeyName()})) {
+                $model->{$model->getKeyName()} = (string) Str::uuid();
+            }
+        });
+    }
+    // ------------------------------
+
     public function company() {
         return $this->belongsTo(Company::class);
     }
 
-    // Ý nghĩa: 1 Nhân viên có nhiều ngày chấm công
     public function attendances() {
         return $this->hasMany(Attendance::class);
     }

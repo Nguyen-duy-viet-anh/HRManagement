@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void {
     Schema::create('user_files', function (Blueprint $table) {
         $table->id();
-        $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+        // Ví dụ trong create_attendances_table.php
+        $table->foreignUuid('company_id')->constrained('companies')->onDelete('cascade');
         $table->string('type'); // cv, cmt, hop_dong
         $table->string('file_path');
         $table->timestamps();
