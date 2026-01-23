@@ -9,24 +9,23 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void {
+    public function up()
+{
     Schema::create('attendances', function (Blueprint $table) {
-        $table->id();
+        // THAY ĐỔI: Sử dụng uuid() thay vì id()
+        $table->uuid('id')->primary(); 
         
-        // SỬA: Phải dùng foreignUuid vì bảng users đã dùng UUID
-        $table->foreignUuid('user_id')->constrained('users')->onDelete('cascade');
-        
-        // GIỮ NGUYÊN: Vì bảng companies đã dùng UUID
-        $table->foreignUuid('company_id')->constrained('companies')->onDelete('cascade');
-        
+        $table->uuid('user_id'); // Đảm bảo kiểu dữ liệu khớp với bảng users
+        $table->uuid('company_id');
         $table->date('date');
-        $table->tinyInteger('status')->default(1); 
-        
-        $table->unique(['user_id', 'date']);
+        $table->tinyInteger('status')->default(1);
         $table->timestamps();
+
+        // Định nghĩa khóa ngoại (Foreign Keys)
+        $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+        $table->foreign('company_id')->references('id')->on('companies')->onDelete('cascade');
     });
 }
-
     /**
      * Reverse the migrations.
      */

@@ -136,11 +136,11 @@
             </div>
         </div>
 
-        <div class="card-footer bg-white py-3">
-            <div class="d-flex justify-content-center">
-                {{ $users->links('pagination::bootstrap-5') }}
-            </div>
-        </div>
+        <div class="d-flex justify-content-center mt-4">
+    @if(isset($users) && $users->hasPages())
+        {{ $users->appends(request()->query())->links('pagination::bootstrap-5') }}
+    @endif
+</div>
     </div>
 </div>
 

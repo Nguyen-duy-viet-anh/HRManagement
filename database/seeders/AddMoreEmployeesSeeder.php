@@ -3,69 +3,60 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\User;
-use App\Models\Company;
-use App\Models\Attendance;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use App\Models\Company; // Thêm dòng này
 
 class AddMoreEmployeesSeeder extends Seeder
 {
     public function run()
     {
-        ini_set('memory_limit', '512M');
-        
-        echo "🚀 Đang thêm 25 nhân viên cho MỖI công ty...\n";
+        ini_set('memory_limit', '-1');
+        set_time_limit(0);
+        DB::connection()->disableQueryLog();
 
-        // 1. Lấy tất cả công ty đang có
-        $companies = Company::all();
-        
-        if ($companies->isEmpty()) {
-            echo "⚠️ Không tìm thấy công ty nào. Hãy chạy DatabaseSeeder trước!\n";
-            return;
-        }
+        // 1. LẤY ID CỦA MỘT CÔNG TY ĐANG TỒN TẠI
+        $firstCompany = Company::first();
 
-        // 2. Chuẩn bị ngày làm việc (Trừ Chủ Nhật)
-        $startDate = Carbon::now()->startOfMonth();
-        $today = Carbon::now();
-        $workingDays = [];
-        
-        for ($date = $startDate->copy(); $date->lte($today); $date->addDay()) {
-            if ($date->dayOfWeek != Carbon::SUNDAY) {
-                $workingDays[] = $date->format('Y-m-d');
-            }
-        }
-
-        // 3. Vòng lặp thêm người
-        foreach ($companies as $company) {
-            echo "   + Đang bổ sung cho: " . $company->name . "...\n";
-
-            // Tạo thêm 25 nhân viên mới
-            $newEmployees = User::factory(25)->create([
-                'role' => 2,
-                'company_id' => $company->id,
+        // Nếu chưa có công ty nào, hãy tạo nhanh 1 cái để có ID
+        if (!$firstCompany) {
+            $companyId = DB::table('companies')->insertGetId([
+                'name' => 'Công ty Tổng',
+                'email' => 'admin@company.com',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
-
-            // Chấm công cho 25 người mới này
-            $attendanceData = [];
-            foreach ($newEmployees as $emp) {
-                foreach ($workingDays as $day) {
-                    $status = rand(1, 100) <= 90 ? 1 : 0;
-                    $attendanceData[] = [
-                        'user_id' => $emp->id,
-                        'date' => $day,
-                        'status' => $status,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
-            }
-
-            // Insert nhanh
-            foreach (array_chunk($attendanceData, 1000) as $chunk) {
-                Attendance::insert($chunk);
-            }
+        } else {
+            $companyId = $firstCompany->id;
         }
 
-        echo "✅ ĐÃ XONG! Mỗi công ty đã có thêm 25 nhân viên.\n";
+        $total = 500000;
+        $chunkSize = 5000;
+        $password = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
+
+        $this->command->info("🚀 Đang nạp 500.000 nhân viên vào Công ty ID: $companyId");
+        $bar = $this->command->getOutput()->createProgressBar($total);
+
+        for ($i = 0; $i < $total; $i += $chunkSize) {
+            $users = [];
+            for ($j = 0; $j < $chunkSize; $j++) {
+                $users[] = [
+                    'id' => (string) Str::uuid(),
+                    'name' => "NV " . ($i + $j + 1),
+                    'email' => "emp" . ($i + $j + 1) . "_" . Str::random(3) . "@hr.com",
+                    'password' => $password,
+                    'role' => 2,
+                    'company_id' => $companyId, // Dùng ID thật đã lấy ở trên
+                    'base_salary' => rand(8000000, 15000000),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+            DB::table('users')->insert($users);
+            $bar->advance($chunkSize);
+        }
+
+        $bar->finish();
+        $this->command->info("\n Đã nạp thành công!");
     }
 }

@@ -80,7 +80,7 @@
                                     // 1. Ảnh từ Faker (URL trực tiếp)
                                     $userAvatar = $avatar;
                                 } elseif ($avatar) {
-                                    // 2. Ảnh tự thêm (Lưu trong storage/app/public)
+                                    // 2. Ảnh tự thêm 
                                     $userAvatar = asset('storage/' . $avatar);
                                 } else {
                                     // 3. Không có ảnh -> Dùng ảnh mặc định theo tên

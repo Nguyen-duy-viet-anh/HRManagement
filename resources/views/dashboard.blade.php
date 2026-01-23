@@ -57,7 +57,7 @@
 
 @if(Auth::user()->role == 0 || Auth::user()->role == 1)
 <div class="row">
-    <div class="col-md-3 mb-4">
+    <div class="col-md-4 mb-4">
         <div class="card border-0 shadow-sm h-100 bg-primary text-white">
             <div class="card-body">
                 <div class="text-uppercase fw-bold small opacity-75">Tổng số Công Ty</div>
@@ -66,7 +66,7 @@
         </div>
     </div>
 
-    <div class="col-md-3 mb-4">
+    <div class="col-md-4 mb-4">
         <div class="card border-0 shadow-sm h-100 bg-success text-white">
             <div class="card-body">
                 <div class="text-uppercase fw-bold small opacity-75">Tổng số Nhân sự</div>
@@ -75,7 +75,7 @@
         </div>
     </div>
 
-    <div class="col-md-3 mb-4">
+    <div class="col-md-4 mb-4">
         <div class="card border-0 shadow-sm h-100 bg-info text-dark">
             <div class="card-body">
                 <div class="text-uppercase fw-bold small opacity-75">Đi làm hôm nay</div>
@@ -84,14 +84,14 @@
         </div>
     </div>
 
-    <div class="col-md-3 mb-4">
+    {{-- <div class="col-md-3 mb-4">
         <div class="card border-0 shadow-sm h-100 bg-warning text-dark">
             <div class="card-body">
                 <div class="text-uppercase fw-bold small opacity-75">Quỹ lương (Tạm tính)</div>
                 <div class="h4 mb-0 fw-bold">{{ number_format($total_estimated_salary) }} đ</div>
             </div>
         </div>
-    </div>
+    </div> --}}
 </div>
 
 <div class="row mt-2">
@@ -134,15 +134,22 @@
                 TRẠNG THÁI LÀM VIỆC
             </div>
             <div class="card-body py-5">
-                @if($todayAttendance)
+                
+                @if($todayAttendance && $todayAttendance->status == 1)
                     <h2 class="text-success fw-bold mb-3">ĐÃ CHẤM CÔNG</h2>
                     <p class="text-muted mb-4">Giờ vào làm: {{ $todayAttendance->created_at->format('H:i:s') }}</p>
-                    <button class="btn btn-secondary w-100 fw-bold py-3" disabled>
+                    <button class="btn btn-success w-100 fw-bold py-3" disabled>
                         TRẠNG THÁI: ĐÃ HOÀN THÀNH
                     </button>
+
                 @else
-                    <h2 class="text-warning fw-bold mb-3">CHƯA ĐIỂM DANH</h2>
-                    <p class="mb-4">Vui lòng xác nhận để bắt đầu tính công ngày hôm nay.</p>
+                    <h2 class="text-primary fw-bold mb-3">SẴN SÀNG ĐIỂM DANH</h2>
+                    <p class="mb-4">
+                        @if($todayAttendance && $todayAttendance->status == 0)
+                            <span class="text-danger">(Trạng thái hiện tại: Vắng/Chưa duyệt)</span><br>
+                        @endif
+                        Vui lòng bấm nút dưới đây để xác nhận đi làm.
+                    </p>
                     
                     <form action="{{ route('attendance.self') }}" method="POST">
                         @csrf
@@ -151,6 +158,7 @@
                         </button>
                     </form>
                 @endif
+
             </div>
             <div class="card-footer text-muted small">
                 Công ty: {{ Auth::user()->company->name ?? 'Chưa xác định' }}

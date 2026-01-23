@@ -27,15 +27,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
 
     // ----------------------------------------------------
-    // NHÓM 1: CÁC CHỨC NĂNG CÔNG TY NHẠY CẢM (Chỉ Admin - Role 0)
+    // NHÓM 1: CÁC CHỨC NĂNG CÔNG TY (Chỉ Admin - Role 0)
     // Quyền: Xem danh sách, Tạo mới, Xóa công ty
     // ----------------------------------------------------
-    Route::middleware(['role:0'])->group(function() {
-        Route::get('/companies', [CompanyController::class, 'index'])->name('companies.index');
-        Route::get('/companies/create', [CompanyController::class, 'create'])->name('companies.create');
-        Route::post('/companies', [CompanyController::class, 'store'])->name('companies.store');
-        Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
-    });
+    Route::middleware(['auth', 'role:0'])->group(function() {
+    Route::get('/companies', [CompanyController::class, 'index'])->name('companies.index');
+    Route::get('/companies/create', [CompanyController::class, 'create'])->name('companies.create');
+    Route::post('/companies', [CompanyController::class, 'store'])->name('companies.store');
+    Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
+});
 
     // ----------------------------------------------------
     // NHÓM 2: QUẢN LÝ & ADMIN (Role 0 & 1)

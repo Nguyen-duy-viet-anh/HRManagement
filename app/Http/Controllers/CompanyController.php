@@ -4,92 +4,93 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Company;
+use Illuminate\Support\Facades\Auth;
 
 class CompanyController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-    // Lấy 10 công ty một trang, sắp xếp mới nhất lên đầu
-    // withCount('users'): Đếm luôn xem công ty đó có bao nhiêu nhân viên (Laravel tự làm, rất tiện)
-    $companies = Company::withCount('users')->latest()->paginate(10);
+    public function index(Request $request)
+{
+    $search = $request->input('search');
 
-    // Trả về view và gửi kèm biến $companies sang đó
-    return view('companies.index', compact('companies'));
-    }
-    // 2. Hiện form thêm mới
+    $companies = Company::query()
+        ->when($search, function($query, $search) {
+            return $query->where('name', 'LIKE', "%{$search}%");
+        })
+        ->withCount('users') 
+        ->orderBy('id', 'asc') // Sắp xếp theo bảng chữ cái sau khi đã ưu tiên
+        ->paginate(10);
+        // dd($companies);
+    return view('companies.index', compact('companies', 'search'));
+}
+    // 1. Hiển thị form Thêm mới
     public function create()
     {
-        return view('companies.create');
+        // Thay đổi: Trỏ về view 'companies.form'
+        // Không truyền biến $company -> View sẽ tự hiểu là đang THÊM MỚI
+        return view('companies.form');
     }
 
-    // 3. Xử lý lưu dữ liệu thêm mới
+    // 2. Xử lý lưu Thêm mới
     public function store(Request $request)
     {
-        // Validate (Kiểm tra dữ liệu đầu vào)
         $request->validate([
-            'name' => 'required', // Bắt buộc nhập
-            'email' => 'nullable|email|unique:companies,email', // Email không được trùng
+            'name' => 'required|string|max:255',
+            'email' => 'nullable|email|unique:companies,email',
             'standard_working_days' => 'required|integer|min:1|max:31',
+            'phone' => 'nullable|string|max:20',
         ]);
 
-        // Lưu vào database
         Company::create($request->all());
 
         return redirect()->route('companies.index')->with('success', 'Đã thêm công ty mới!');
     }
 
-   // Hàm hiển thị form sửa
+    // 3. Hiển thị form Chỉnh sửa
     public function edit($id)
     {
-        $user = \Illuminate\Support\Facades\Auth::user();
-        
-        // BẢO MẬT: Nếu là Quản lý (Role 1)
-        if ($user->role == 1) {
-            // Nếu ID trên URL khác ID công ty của họ -> Chặn ngay
-            if ($id != $user->company_id) {
-                abort(403, 'Bạn không có quyền chỉnh sửa công ty khác.');
-            }
+        $user = Auth::user();
+
+        // BẢO MẬT: Chặn Quản lý (Role 1) sửa công ty người khác
+        if ($user->role == 1 && $id != $user->company_id) {
+            abort(403, 'Bạn không có quyền chỉnh sửa công ty này.');
         }
 
         $company = Company::findOrFail($id);
-        return view('companies.edit', compact('company'));
+
+        // Thay đổi: Cũng trỏ về view 'companies.form'
+        // NHƯNG có truyền biến $company -> View sẽ tự hiểu là đang SỬA
+        return view('companies.form', compact('company'));
     }
 
-    // Hàm lưu thông tin sửa
+    // 4. Xử lý lưu Cập nhật
     public function update(Request $request, $id)
     {
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
 
-        // BẢO MẬT: Kiểm tra lại lần nữa khi bấm nút Lưu
+        // BẢO MẬT: Kiểm tra lại quyền khi bấm nút Lưu
         if ($user->role == 1 && $id != $user->company_id) {
-            abort(403, 'Bạn không có quyền chỉnh sửa công ty khác.');
+            abort(403, 'Bạn không có quyền chỉnh sửa công ty này.');
         }
 
         $request->validate([
-            'name' => 'required',
-            'email' => 'required|email',
-            // Các validate khác tùy bạn...
+            'name' => 'required|string|max:255',
+            // QUAN TRỌNG: Kiểm tra trùng email nhưng trừ ID hiện tại ra
+            // unique:bảng,cột,id_trừ_ra
+            'email' => 'nullable|email|unique:companies,email,' . $id,
+            'standard_working_days' => 'required|integer|min:1|max:31',
+            'phone' => 'nullable|string|max:20',
         ]);
 
         $company = Company::findOrFail($id);
         $company->update($request->all());
 
-        // Nếu là Admin thì quay về danh sách, nếu là Quản lý thì quay lại form sửa (vì họ ko xem đc danh sách)
+        // Điều hướng thông minh:
+        // - Admin (Role 0): Về danh sách để quản lý tiếp
+        // - Quản lý (Role 1): Ở lại form sửa để xem lại thông tin (vì họ ko vào được trang index)
         if ($user->role == 0) {
             return redirect()->route('companies.index')->with('success', 'Cập nhật thành công');
         } else {
             return back()->with('success', 'Cập nhật thông tin công ty thành công');
         }
     }
-
-    // 6. Xóa công ty
-    public function destroy(Company $company)
-    {
-        $company->delete();
-        return redirect()->route('companies.index')->with('success', 'Đã xóa công ty!');
-    }
-
 }

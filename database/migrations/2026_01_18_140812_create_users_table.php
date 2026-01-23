@@ -12,7 +12,6 @@ return new class extends Migration
     public function up(): void {
     Schema::create('users', function (Blueprint $table) {
         $table->uuid('id')->primary();
-        // Chuyển sang kiểu foreignUuid để khớp với UUID của bảng companies
 $table->foreignUuid('company_id')->nullable()->constrained('companies')->onDelete('cascade');
         
         $table->string('name');

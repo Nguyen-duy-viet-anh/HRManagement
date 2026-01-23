@@ -4,13 +4,29 @@
 <div class="container-fluid py-4">
     <div class="card shadow-sm border-0 rounded-3">
         <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom">
-            <h5 class="m-0 fw-bold text-primary">
-                <i class="bi bi-building me-2"></i>DANH SÁCH CÔNG TY
-            </h5>
-            <a href="{{ route('companies.create') }}" class="btn btn-primary shadow-sm fw-bold">
-                <i class="bi bi-plus-lg me-1"></i> Thêm mới công ty
-            </a>
-        </div>
+    <h5 class="m-0 fw-bold text-primary">
+        <i class="bi bi-building me-2"></i>DANH SÁCH CÔNG TY
+    </h5>
+    
+    <div class="d-flex gap-2">
+        <form action="{{ route('companies.index') }}" method="GET" class="d-flex">
+            <div class="input-group">
+                <input type="text" name="search" class="form-control" 
+                       placeholder="Tìm tên, email..." value="{{ request('search') }}">
+                <button class="btn btn-outline-primary" type="submit">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+                        @if(request('search'))
+                            <a href="{{ route('companies.index') }}" class="btn btn-link text-decoration-none">Xóa</a>
+                        @endif
+                    </form>
+                    
+                    <a href="{{ route('companies.create') }}" class="btn btn-primary shadow-sm fw-bold">
+                        <i class="bi bi-plus-lg me-1"></i> Thêm mới
+                    </a>
+                </div>
+            </div>
 
         <div class="card-body p-0">
             <div class="table-responsive">

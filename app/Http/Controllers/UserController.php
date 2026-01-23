@@ -7,84 +7,90 @@ use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage; 
 
 class UserController extends Controller
 {
-    // 1. XEM DANH SÁCH (Đã phân quyền)
+    // 1. XEM DANH SÁCH
     public function index(Request $request)
-{
-    $user = Auth::user();
-    $search = $request->input('search');
-    $company_id = $request->input('company_id'); // Lấy id công ty từ request
+    {
+        $user = Auth::user();
+        $search = $request->input('search');
+        $company_id = $request->input('company_id');
+        
+        $query = User::with('company');
 
-    $query = User::with('company');
-
-    // Phân quyền
-    if ($user->role == 1) {
-        $query->where('company_id', $user->company_id);
-    } else {
-        // Nếu là Admin và có chọn công ty cụ thể
-        if ($company_id) {
-            $query->where('company_id', $company_id);
+        // Phân quyền
+        if ($user->role == 1) {
+            $query->where('company_id', $user->company_id);
+        } else {
+            if ($company_id) {
+                $query->where('company_id', $company_id);
+            }
         }
+
+        // Tìm kiếm
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $users = $query->orderBy('id', 'desc')->Paginate(100);
+        
+        $companies = [];
+        if ($user->role == 0) {
+            $companies = Company::select('id', 'name')->get();
+        }
+
+        return view('users.index', compact('users', 'search', 'companies', 'company_id'));
     }
 
-    // Tìm kiếm theo tên/email
-    if ($search) {
-        $query->where(function ($q) use ($search) {
-            $q->where('name', 'LIKE', "%{$search}%")
-              ->orWhere('email', 'LIKE', "%{$search}%");
-        });
-    }
-
-    $users = $query->orderBy('name', 'asc')->paginate(20);
-    
-    // Lấy danh sách công ty cho Admin lọc (chỉ lấy ID và Name để nhẹ máy)
-    $companies = Company::select('id', 'name')->get();
-
-    return view('users.index', compact('users', 'search', 'companies', 'company_id'));
-}
-
-    // 2. FORM THÊM MỚI (Chặn chọn công ty lung tung)
+    // 2. FORM THÊM MỚI (Trỏ về users.form)
     public function create()
     {
         $user = Auth::user();
 
+        // Lấy danh sách công ty tùy theo quyền
         if ($user->role == 1) {
-            // Role 1: Chỉ gửi sang View đúng 1 công ty của họ
             $companies = Company::where('id', $user->company_id)->get();
         } else {
-            // Role 0: Gửi sang tất cả công ty để chọn
-            $companies = Company::all();
+            $companies = Company::select('id', 'name')->get();
         }
 
-        return view('users.create', compact('companies'));
+        // Không truyền biến $user -> Form hiểu là THÊM MỚI
+        return view('users.form', compact('companies'));
     }
 
-    // 3. LƯU NHÂN VIÊN MỚI (Tự động gán công ty)
+    // 3. LƯU NHÂN VIÊN MỚI (Có xử lý Avatar)
     public function store(Request $request)
     {
+        $user = Auth::user();
+
         $request->validate([
-            'name' => 'required',
+            'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:6',
-            // Nếu là Admin thì bắt buộc chọn công ty, nếu là Quản lý thì thôi
-            'company_id' => Auth::user()->role == 0 ? 'required' : '', 
-            'base_salary' => 'required|numeric'
+            'company_id' => 'required',
+            'base_salary' => 'required|numeric',
+            'avatar' => 'nullable|image|max:2048', // Validate ảnh
         ]);
 
         $data = $request->all();
         $data['password'] = Hash::make($request->password);
 
-        // LOGIC QUAN TRỌNG:
-        // Nếu là Quản lý (Role 1) -> Tự động điền ID công ty của họ vào
-        if (Auth::user()->role == 1) {
-            $data['company_id'] = Auth::user()->company_id;
-            
-            // Đảm bảo không thể tạo user có quyền Admin (Role 0)
-            // Chỉ cho tạo Nhân viên (2) hoặc Quản lý phụ (1)
-            if ($request->role == 0) {
-                $data['role'] = 2; // Ép về nhân viên nếu cố tình hack
+        // Xử lý upload ảnh (Nếu có)
+        if ($request->hasFile('avatar')) {
+            $data['avatar'] = $request->file('avatar')->store('avatars', 'public');
+        }
+
+        // Bảo mật: Nếu là Quản lý, ép buộc company_id là của chính họ
+        if ($user->role == 1) {
+            $data['company_id'] = $user->company_id;
+            // Không cho tạo Admin
+            if (isset($data['role']) && $data['role'] == 0) {
+                $data['role'] = 2; 
             }
         }
 
@@ -92,65 +98,70 @@ class UserController extends Controller
 
         return redirect()->route('users.index')->with('success', 'Thêm nhân viên thành công.');
     }
-    // =========================================================
-    // 4. HIỂN THỊ FORM SỬA (EDIT)
-    // =========================================================
+
+    // 4. FORM SỬA (Trỏ về users.form)
     public function edit(string $id)
     {
         $targetUser = User::findOrFail($id);
         $currentUser = Auth::user();
 
-        // BẢO MẬT: Nếu là Quản lý (Role 1) mà cố tình sửa nhân viên công ty khác -> Chặn
+        // BẢO MẬT
         if ($currentUser->role == 1 && $targetUser->company_id != $currentUser->company_id) {
             abort(403, 'Bạn không có quyền sửa nhân viên của công ty khác.');
         }
 
-        // Chuẩn bị danh sách công ty
         if ($currentUser->role == 1) {
-            $companies = \App\Models\Company::where('id', $currentUser->company_id)->get();
+            $companies = Company::where('id', $currentUser->company_id)->get();
         } else {
-            $companies = \App\Models\Company::all();
+            $companies = Company::select('id', 'name')->get();
         }
 
-        // SỬA DÒNG NÀY: Đổi tên key thành 'user'
-        return view('users.edit', [
+        // Truyền biến 'user' -> Form hiểu là SỬA
+        return view('users.form', [
             'user' => $targetUser, 
             'companies' => $companies
         ]);
     }
-    // =========================================================
-    // 5. LƯU CẬP NHẬT (UPDATE)
-    // =========================================================
+    
+    // 5. CẬP NHẬT (Có xử lý Avatar và Xóa ảnh cũ)
     public function update(Request $request, string $id)
     {
         $targetUser = User::findOrFail($id);
         $currentUser = Auth::user();
 
-        // BẢO MẬT: Kiểm tra quyền lần nữa
         if ($currentUser->role == 1 && $targetUser->company_id != $currentUser->company_id) {
             abort(403, 'Bạn không có quyền cập nhật nhân viên này.');
         }
 
         $request->validate([
-            'name' => 'required',
-            'email' => 'required|email|unique:users,email,'.$id, // Cho phép trùng email chính mình
-            'base_salary' => 'required|numeric'
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,'.$id,
+            'base_salary' => 'required|numeric',
+            'avatar' => 'nullable|image|max:2048',
         ]);
 
         $data = $request->all();
 
-        // Nếu người dùng nhập mật khẩu mới thì mới cập nhật, không thì giữ nguyên
+        // Xử lý mật khẩu
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         } else {
-            unset($data['password']);
+            unset($data['password']); // Bỏ password khỏi mảng data để không bị ghi đè thành null
         }
 
-        // Logic ép buộc công ty (giống hàm store)
+        // Xử lý Avatar: Upload ảnh mới và xóa ảnh cũ
+        if ($request->hasFile('avatar')) {
+            // Xóa ảnh cũ nếu có
+            if ($targetUser->avatar) {
+                Storage::disk('public')->delete($targetUser->avatar);
+            }
+            $data['avatar'] = $request->file('avatar')->store('avatars', 'public');
+        }
+
+        // Bảo mật Role
         if ($currentUser->role == 1) {
             $data['company_id'] = $currentUser->company_id;
-            // Không cho Quản lý tự ý thăng chức cho nhân viên thành Admin
-            if ($request->role == 0) {
+            if (isset($data['role']) && $data['role'] == 0) {
                 $data['role'] = 2; 
             }
         }
@@ -160,22 +171,23 @@ class UserController extends Controller
         return redirect()->route('users.index')->with('success', 'Cập nhật thông tin thành công.');
     }
 
-    // =========================================================
-    // 6. XÓA NHÂN VIÊN (DESTROY)
-    // =========================================================
+    // 6. XÓA (Có xóa file ảnh)
     public function destroy(string $id)
     {
         $targetUser = User::findOrFail($id);
         $currentUser = Auth::user();
 
-        // BẢO MẬT: Chặn xóa nhân viên công ty khác
         if ($currentUser->role == 1 && $targetUser->company_id != $currentUser->company_id) {
             abort(403, 'Bạn không có quyền xóa nhân viên này.');
         }
 
-        // Không cho phép tự xóa chính mình
         if ($currentUser->id == $targetUser->id) {
             return back()->with('error', 'Bạn không thể tự xóa tài khoản của chính mình.');
+        }
+
+        // Xóa ảnh đại diện khỏi ổ cứng trước khi xóa user (để tiết kiệm dung lượng)
+        if ($targetUser->avatar) {
+            Storage::disk('public')->delete($targetUser->avatar);
         }
 
         $targetUser->delete();

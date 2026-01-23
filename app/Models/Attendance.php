@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Concerns\HasUuids; // 1. IMPORT THƯ VIỆN NÀY
 
 class Attendance extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUuids; // 2. KHAI BÁO SỬ DỤNG Ở ĐÂY
 
     protected $fillable = [
         'user_id',
@@ -15,16 +16,12 @@ class Attendance extends Model
         'date',
         'status'
     ];
+    
+    // UUID settings
+    protected $keyType = 'string';
+    public $incrementing = false;
 
-    // QUAN TRỌNG: Kết nối tới bảng User
-    public function user()
-    {
-        return $this->belongsTo(User::class, 'user_id');
-    }
-
-    // Kết nối tới bảng Company (Nếu sau này bạn cần dùng $attendance->company)
-    public function company()
-    {
-        return $this->belongsTo(Company::class, 'company_id');
-    }
+    // ... (Giữ nguyên các hàm user() và company() của bạn)
+    public function user() { return $this->belongsTo(User::class, 'user_id'); }
+    public function company() { return $this->belongsTo(Company::class, 'company_id'); }
 }

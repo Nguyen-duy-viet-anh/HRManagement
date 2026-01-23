@@ -3,13 +3,13 @@
 @section('content')
 <div class="container-fluid py-4">
     <div class="card shadow-sm border-0 rounded-3">
-        <div class="card-header bg-success text-white py-3">
+        <div class="card-header text-primary py-3">
             <div class="d-flex justify-content-between align-items-center">
                 <h5 class="m-0 fw-bold">
                     <i class="bi bi-cash-stack me-2"></i>QUẢN LÝ BẢNG LƯƠNG
                 </h5>
                 @if(isset($month))
-                    <span class="badge bg-white text-success px-3 py-2 fw-bold">
+                    <span class="badge bg-primary text-white px-3 py-2 fw-bold">
                         Tháng {{ \Carbon\Carbon::parse($month)->format('m/Y') }}
                     </span>
                 @endif
@@ -17,6 +17,7 @@
         </div>
 
         <div class="card-body p-4">
+            {{-- FORM TÌM KIẾM --}}
             <form id="form-salary" action="{{ route('salary.index') }}" method="GET" class="row g-3 mb-4 p-3 bg-light rounded-3 shadow-sm align-items-end">
                 <div class="col-md-3">
                     <label class="form-label fw-bold small text-muted text-uppercase">Chọn Tháng</label>
@@ -36,7 +37,7 @@
                 </div>
 
                 <div class="col-md-5 d-flex gap-2">
-                    <button type="submit" class="btn btn-success flex-grow-1 fw-bold shadow-sm">
+                    <button type="submit" class="btn flex-grow-1 btn-primary fw-bold shadow-sm">
                         <i class="bi bi-search me-1"></i> XEM BẢNG LƯƠNG
                     </button>
                     
@@ -49,12 +50,13 @@
                 </div>
             </form>
 
+            {{-- BẢNG DỮ LIỆU --}}
             @if(isset($users) && count($users) > 0)
             <div class="table-responsive rounded-3 border">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="bg-dark text-white">
                         <tr>
-                            <th class="text-center py-3">ID</th>
+                            <th class="text-center py-3">STT</th> 
                             <th class="py-3">Họ và Tên</th>
                             <th class="text-end py-3">Lương Cơ Bản</th>
                             <th class="text-center py-3">Ngày Công</th>
@@ -65,7 +67,7 @@
                         @foreach($users as $user)
                         <tr>
                             <td class="text-center text-muted fw-bold">
-                                {{ $loop->iteration }}
+                                {{ ($users->currentPage() - 1) * $users->perPage() + $loop->iteration }}
                             </td>
                             <td>
                                 <div class="fw-bold text-dark">{{ $user->name }}</div>
@@ -89,6 +91,13 @@
                         @endforeach
                     </tbody>
                 </table>
+
+                
+                <div class="d-flex justify-content-center mt-4 pb-3">
+                    @if(isset($users) && $users->hasPages())
+                        {{ $users->appends(request()->query())->links('pagination::bootstrap-5') }}
+                    @endif
+                </div>
             </div>
             
             <div class="mt-3 text-muted small italic">

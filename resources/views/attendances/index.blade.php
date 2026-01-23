@@ -15,28 +15,45 @@
         </div>
 
         <div class="card-body p-4">
-            <form id="filter-form" action="{{ route('attendance.index') }}" method="GET" class="row g-3 mb-4 p-3 bg-light rounded-3 align-items-end">
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold small text-muted text-uppercase">Chọn Ngày</label>
-                    <input type="date" name="date" class="form-control border-0 shadow-sm" value="{{ $date }}">
-                </div>
-                <div class="col-md-5">
-                    <label class="form-label fw-semibold small text-muted text-uppercase">Chọn Công ty</label>
-                    <select name="company_id" class="form-select border-0 shadow-sm" onchange="document.getElementById('filter-form').submit();">
-                        <option value="">-- Tất cả công ty --</option>
-                        @foreach($companies as $company)
-                            <option value="{{ $company->id }}" {{ $company_id == $company->id ? 'selected' : '' }}>
-                                {{ $company->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-bold">
-                        Lọc danh sách
-                    </button>
-                </div>
-            </form>
+            <form id="filter-form" action="{{ route('attendance.index') }}" method="GET" class="row g-2 mb-4 p-3 bg-light rounded-3 align-items-end">
+    
+    {{-- 1. Ngày --}}
+    <div class="col-md-3">
+        <label class="fw-bold small text-muted">NGÀY</label>
+        <input type="date" name="date" class="form-control" value="{{ $date }}">
+    </div>
+
+    {{-- 2. Công ty --}}
+    @if(Auth::user()->role == 0)
+        <div class="col-md-4">
+            <label class="fw-bold small text-muted">CÔNG TY</label>
+            <select name="company_id" class="form-select" onchange="this.form.submit()">
+                <option value="">-- Chọn công ty --</option>
+                @foreach($companies as $company)
+                    <option value="{{ $company->id }}" {{ $company_id == $company->id ? 'selected' : '' }}>
+                        {{ $company->name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+    @else
+        <input type="hidden" name="company_id" value="{{ $company_id }}">
+    @endif
+
+    {{-- 3. Tìm Tên (Đã xóa ô ID và mở rộng ô Tên ra) --}}
+    <div class="col-md-3">
+        <label class="fw-bold small text-muted">TÊN NHÂN VIÊN</label>
+        <input type="text" name="search_name" class="form-control" 
+               placeholder="Nhập tên..." value="{{ $search_name ?? '' }}">
+    </div>
+
+    {{-- 4. Nút Tìm --}}
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100 fw-bold">
+            <i class="bi bi-search"></i> Tìm
+        </button>
+    </div>
+</form>
 
             @if(isset($users) && count($users) > 0)
             <form action="{{ route('attendance.store') }}" method="POST">
@@ -95,12 +112,18 @@
                     </button>
                 </div>
 
-                @if($users instanceof \Illuminate\Pagination\LengthAwarePaginator)
-                <div class="d-flex justify-content-center mt-4">
-                    {{ $users->appends(['date' => $date, 'company_id' => $company_id])->links('pagination::bootstrap-5') }}
+    
+                @if(isset($users) && $users->hasPages())
+                    <div class="d-flex justify-content-center mt-4 pb-5">
+                    @if(isset($users) && $users->hasPages())
+                        {{ $users->appends([
+                            'date' => $date, 
+                            'company_id' => $company_id,
+                            'search_name' => $search_name ?? ''
+                        ])->links('pagination::bootstrap-5') }}
+                    @endif
                 </div>
                 @endif
-
             </form>
             @else
                 <div class="text-center py-5">
