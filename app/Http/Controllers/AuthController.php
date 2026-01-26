@@ -35,80 +35,64 @@ class AuthController extends Controller
     
     // HÀM DASHBOARD ĐÃ ĐƯỢC TỐI ƯU HÓA
     public function dashboard() {
+    $user = Auth::user();
+    $today = date('Y-m-d');
+    $currentMonth = date('m');
+    $currentYear = date('Y');
 
-        $user = Auth::user();
-        $today = date('Y-m-d');
-        $currentMonth = date('m');
-        $currentYear = date('Y');
+    // 1. TẠO KEY CACHE (Để phân biệt Cache của Admin và từng Công ty)
+    $cacheKey = "dashboard_stats_role_{$user->role}_comp_{$user->company_id}";
 
-        // 1. TẠO KEY CACHE (Để phân biệt Cache của Admin và từng Công ty)
-        // Ví dụ: dashboard_stats_role_0_comp_null (Admin)
-        // Ví dụ: dashboard_stats_role_1_comp_5 (Manager công ty 5)
-        $cacheKey = "dashboard_stats_role_{$user->role}_comp_{$user->company_id}";
+    // 2. SỬ DỤNG CACHE (Lưu trong 10 phút = 600 giây)
+    $stats = Cache::remember($cacheKey, 600, function () use ($user, $today) {
+        
+        // Chỉ giữ lại các thống kê cơ bản, BỎ phần lương
+        $data = [
+            'total_companies' => 0,
+            'total_users' => 0,
+            'present_today' => 0,
+        ];
 
-        // 2. SỬ DỤNG CACHE CHO CÁC THỐNG KÊ NẶNG (Lưu trong 30 phút = 1800 giây)
-        $stats = Cache::remember($cacheKey, 1800, function () use ($user, $today, $currentMonth, $currentYear) {
+        // Thống kê số lượng
+        if ($user->role == 0) { // ADMIN TỔNG
+            $data['total_companies'] = Company::count();
+            $data['total_users'] = User::count();
             
-            // Các giá trị mặc định
-            $data = [
-                'total_companies' => 0,
-                'total_users' => 0,
-                'present_today' => 0,
-                'total_estimated_salary' => 0,
-            ];
+            // Đếm số người đi làm HÔM NAY (quan trọng: phải có where date)
+            $data['present_today'] = Attendance::where('date', $today)
+                                               ->where('status', 1)
+                                               ->count();
 
-            // A. Thống kê số lượng cơ bản
-            if ($user->role == 0) { // ADMIN TỔNG
-                $data['total_companies'] = Company::count();
-                $data['total_users'] = User::count();
-                $data['present_today'] = Attendance::where('status', 1)->count();
-            } elseif ($user->role == 1) { // QUẢN LÝ CÔNG TY
-                $data['total_companies'] = 1;
-                $data['total_users'] = User::where('company_id', $user->company_id)->count();
-                $data['present_today'] = Attendance::where('company_id', $user->company_id)
-                    
-                    ->where('status', 1)
-                    ->count();
-            }
-
-
-            // B. Tính toán lương dự kiến
-            if (0&&$user->role != 2) {
-                $salaryQuery = Attendance::where('attendances.status', 1);
-                dd($salaryQuery->get());
-                // Lọc theo công ty nếu là Manager
-                if ($user->role == 1) {
-                    $salaryQuery->where('users.company_id', $user->company_id);
-                }
-
-                // Dùng selectRaw để database tự tính, tránh kéo dữ liệu về PHP
-                $result = $salaryQuery->selectRaw('SUM(users.base_salary / NULLIF(companies.standard_working_days, 0)) as total_salary')
-                                      ->first();
-
-                $data['total_estimated_salary'] = $result ? (float) $result->total_salary : 0;
-            }
-
-            return $data;
-        });
-
-        // 3. DỮ LIỆU CÁ NHÂN (KHÔNG CACHE vì thay đổi liên tục theo từng User)
-        $todayAttendance = null;
-        if ($user->role == 2) {
-            $todayAttendance = Attendance::where('user_id', $user->id)
-                ->where('date', $today)
-                ->first();
+        } elseif ($user->role == 1) { // QUẢN LÝ CÔNG TY
+            $data['total_companies'] = 1;
+            $data['total_users'] = User::where('company_id', $user->company_id)->count();
+            
+            // Đếm nhân viên công ty mình đi làm hôm nay
+            $data['present_today'] = Attendance::where('company_id', $user->company_id)
+                                               ->where('date', $today)
+                                               ->where('status', 1)
+                                               ->count();
         }
 
-        $my_work_days = Attendance::where('user_id', $user->id)
-            ->whereYear('date', $currentYear)
-            ->whereMonth('date', $currentMonth)
-            ->where('status', 1)
-            ->count();
+        return $data;
+    });
 
-        // 4. Trả về View (Gộp dữ liệu từ Cache và dữ liệu cá nhân)
-        return view('dashboard', array_merge($stats, [
-            'todayAttendance' => $todayAttendance,
-            'my_work_days' => $my_work_days
-        ]));
-    }
+    // 3. DỮ LIỆU CÁ NHÂN (Cho người dùng xem trạng thái của chính mình)
+    // Phần này không cache vì nó thay đổi liên tục theo từng User
+    $todayAttendance = Attendance::where('user_id', $user->id)
+        ->where('date', $today)
+        ->first();
+
+    $my_work_days = Attendance::where('user_id', $user->id)
+        ->whereYear('date', $currentYear)
+        ->whereMonth('date', $currentMonth)
+        ->where('status', 1)
+        ->count();
+
+    // 4. Trả về View
+    return view('dashboard', array_merge($stats, [
+        'todayAttendance' => $todayAttendance,
+        'my_work_days' => $my_work_days
+    ]));
+}
 }

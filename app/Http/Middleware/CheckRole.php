@@ -18,23 +18,19 @@ class CheckRole
      */
     public function handle(Request $request, Closure $next, ...$roles)
     {
-        // 1. Chưa đăng nhập -> Đuổi về login
         if (!Auth::check()) {
             return redirect()->route('login');
         }
 
-        // 2. Lấy role hiện tại của user (ép về dạng số nguyên cho chắc ăn)
+        // 2. Lấy role hiện tại của user
         $userRole = (int) Auth::user()->role;
 
-        // 3. Xử lý danh sách quyền được phép (ép về mảng số nguyên)
-        // Mục đích: Xử lý trường hợp trong web.php viết "role:0, 1" (thừa dấu cách)
+        // 3. Xử lý danh sách quyền được phép
+        // Mục đích: Xử lý trường hợp trong web.php viết "role:0, 1"
         $allowedRoles = [];
         foreach ($roles as $role) {
             $allowedRoles[] = (int) trim($role); 
         }
-
-        // 4. Debug nhanh (Nếu vẫn lỗi, hãy bỏ comment dòng dưới để xem nó đang nhận giá trị gì)
-        // dd('User Role: ' . $userRole, 'Allowed Roles:', $allowedRoles);
 
         // 5. Kiểm tra
         if (in_array($userRole, $allowedRoles)) {

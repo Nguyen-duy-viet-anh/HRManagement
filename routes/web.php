@@ -11,25 +11,19 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\ProfileController; 
 
-// ====================================================
-// 1. KHU VỰC CÔNG CỘNG 
-// ====================================================
+
+// 1. KHU VỰC ĐĂNG NHẬP
 Route::get('/', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// ====================================================
-// 2. KHU VỰC ĐÃ ĐĂNG NHẬP 
-// ====================================================
+// 2. KHU VỰC ĐÃ ĐĂNG NHẬP =
 Route::middleware('auth')->group(function () {
     
     // Dashboard chung
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
 
-    // ----------------------------------------------------
     // NHÓM 1: CÁC CHỨC NĂNG CÔNG TY (Chỉ Admin - Role 0)
-    // Quyền: Xem danh sách, Tạo mới, Xóa công ty
-    // ----------------------------------------------------
     Route::middleware(['auth', 'role:0'])->group(function() {
     Route::get('/companies', [CompanyController::class, 'index'])->name('companies.index');
     Route::get('/companies/create', [CompanyController::class, 'create'])->name('companies.create');
@@ -37,10 +31,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
 });
 
-    // ----------------------------------------------------
     // NHÓM 2: QUẢN LÝ & ADMIN (Role 0 & 1)
-    // Quyền: Quản lý nhân sự, chấm công, lương VÀ SỬA CÔNG TY
-    // ----------------------------------------------------
     Route::middleware(['role:0,1'])->group(function() {
         
         // MỚI: Cho phép Role 1 vào sửa công ty (Controller sẽ chặn nếu sửa sai công ty)
@@ -60,9 +51,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/salary/export', [SalaryController::class, 'export'])->name('salary.export');
     });
 
-    // ----------------------------------------------------
     // NHÓM 3: NHÂN VIÊN (Role 2)
-    // ----------------------------------------------------
     Route::middleware(['role:2'])->group(function() {
         Route::get('/my-profile', [ProfileController::class, 'show'])->name('profile.show');
         Route::post('/my-profile', [ProfileController::class, 'update'])->name('profile.update');
