@@ -25,7 +25,7 @@
 
     {{-- 2. Công ty --}}
     @if(Auth::user()->role == 0)
-        <div class="col-md-4">
+        <div class="col-md-3"> {{-- Giảm độ rộng để nhường chỗ cho ô Trạng thái --}}
             <label class="fw-bold small text-muted">CÔNG TY</label>
             <select name="company_id" class="form-select" onchange="this.form.submit()">
                 <option value="">-- Chọn công ty --</option>
@@ -40,21 +40,30 @@
         <input type="hidden" name="company_id" value="{{ $company_id }}">
     @endif
 
-    {{-- 3. Tìm Tên (Đã xóa ô ID và mở rộng ô Tên ra) --}}
-    <div class="col-md-3">
+    {{-- 3. [MỚI] Trạng thái --}}
+    <div class="col-md-2">
+        <label class="fw-bold small text-muted">TRẠNG THÁI</label>
+        <select name="status" class="form-select">
+            <option value="all" {{ $status == 'all' ? 'selected' : '' }}>Tất cả</option>
+            <option value="1" {{ $status == '1' ? 'selected' : '' }}>✅ Đã chấm</option>
+            <option value="0" {{ $status == '0' ? 'selected' : '' }}>❌ Chưa chấm</option>
+        </select>
+    </div>
+
+    {{-- 4. Tìm Tên --}}
+    <div class="col-md-2">
         <label class="fw-bold small text-muted">TÊN NHÂN VIÊN</label>
         <input type="text" name="search_name" class="form-control" 
                placeholder="Nhập tên..." value="{{ $search_name ?? '' }}">
     </div>
 
-    {{-- 4. Nút Tìm --}}
+    {{-- 5. Nút Tìm --}}
     <div class="col-md-2">
         <button type="submit" class="btn btn-primary w-100 fw-bold">
             <i class="bi bi-search"></i> Tìm
         </button>
     </div>
 </form>
-
             @if(isset($users) && count($users) > 0)
             <form action="{{ route('attendance.store') }}" method="POST">
                 @csrf

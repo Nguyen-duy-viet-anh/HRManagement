@@ -41,7 +41,8 @@ class DatabaseSeeder extends Seeder
 
         // 4. CHUẨN BỊ THÔNG SỐ
         $totalUsers = 500000;
-        $chunkSize = 2500; 
+        $chunkSize = 2500;
+        
         $today = Carbon::now()->format('Y-m-d');
         
         $bar = $this->command->getOutput()->createProgressBar($totalUsers);

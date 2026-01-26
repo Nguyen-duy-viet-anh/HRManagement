@@ -16,6 +16,9 @@ public function index(Request $request)
     $date = $request->input('date', date('Y-m-d'));
     $company_id = $request->input('company_id');
     $search_name = $request->input('search_name'); 
+    
+    // 1. NHẬN THÊM BIẾN TRẠNG THÁI TỪ VIEW (Mặc định là 'all')
+    $status = $request->input('status', 'all'); 
 
     $user = Auth::user();
     $companies = [];
@@ -29,28 +32,45 @@ public function index(Request $request)
     $users = null;
 
     if ($company_id) {
-        $query = User::where('company_id', $company_id);
+        $query = User::where('company_id', $company_id)->where('role', '!=', 0); // Nên loại trừ Admin ra khỏi danh sách chấm công
 
-
+        // --- A. LỌC THEO TÊN ---
         if ($search_name) {
             $query->where('name', 'LIKE', "%{$search_name}%");
         }
 
+        // --- B. LỌC THEO TRẠNG THÁI (CODE MỚI) ---
+        if ($status == '1') {
+            // Lọc người CÓ bản ghi chấm công status=1 vào ngày đó
+            $query->whereHas('attendances', function ($q) use ($date) {
+                $q->where('date', $date)->where('status', 1);
+            });
+        } elseif ($status == '0') {
+            // Lọc người KHÔNG CÓ bản ghi chấm công status=1 (Bao gồm chưa có record hoặc status=0)
+            $query->whereDoesntHave('attendances', function ($q) use ($date) {
+                $q->where('date', $date)->where('status', 1);
+            });
+        }
+
+        // --- C. PHÂN TRANG ---
         $users = $query->orderBy('id', 'asc')->paginate(15); 
 
+        // --- D. GẮN TRẠNG THÁI HIỂN THỊ RA VIEW ---
+        // (Đoạn này giữ nguyên để hiển thị nút bật tắt đúng trạng thái)
         $userIds = $users->pluck('id')->toArray();
         $attendances = Attendance::whereIn('user_id', $userIds)
                                  ->where('date', $date)
                                  ->get()
                                  ->keyBy('user_id');
 
-        foreach ($users as $user) {
-            $att = $attendances->get($user->id);
-            $user->is_present = ($att && $att->status == 1);
+        foreach ($users as $u) {
+            $att = $attendances->get($u->id);
+            $u->is_present = ($att && $att->status == 1);
         }
     }
 
-    return view('attendances.index', compact('users', 'companies', 'date', 'company_id', 'search_name'));
+    // Nhớ truyền biến $status ra View để giữ trạng thái thẻ select
+    return view('attendances.index', compact('users', 'companies', 'date', 'company_id', 'search_name', 'status'));
 }
 
 public function store(Request $request)
@@ -150,7 +170,23 @@ public function selfCheckIn()
             Cache::forget("dashboard_stats_role_1_comp_{$companyId}");
         }
         
-        // Nếu lười quản lý tên Key, bạn có thể dùng lệnh xóa sạch (nhưng sẽ chậm hệ thống 1 chút)
-        // Cache::flush(); 
     }
+    // --- KHU VỰC NHÂN VIÊN (ROLE 2) ---
+    public function history(Request $request)
+{
+    $user = Auth::user();
+    $month = $request->input('month', date('m'));
+    $year = $request->input('year', date('Y'));
+
+    $attendances = Attendance::where('user_id', $user->id)
+        ->whereYear('date', $year)
+        ->whereMonth('date', $month)
+        ->where('status', 1)
+        ->orderBy('date', 'desc')
+        ->get();
+
+    $totalWorkDays = $attendances->count();
+
+    return view('attendances.history', compact('attendances', 'month', 'year', 'totalWorkDays'));
+}
 }

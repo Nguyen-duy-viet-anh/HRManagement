@@ -18,10 +18,12 @@ class AuthController extends Controller
 
     public function login(Request $request) {
         $credentials = $request->only('email', 'password');
-
+        
+        // Tìm email trong bảng users
         if (Auth::attempt($credentials)) {
+
             $user = Auth::user();
-            // Điều hướng tất cả về Dashboard
+
             return redirect()->intended('dashboard');
         }
 
@@ -77,7 +79,7 @@ class AuthController extends Controller
         return $data;
     });
 
-    // 3. DỮ LIỆU CÁ NHÂN (Cho người dùng xem trạng thái của chính mình)
+    // 3. DỮ LIỆU CÁ NHÂN
     // Phần này không cache vì nó thay đổi liên tục theo từng User
     $todayAttendance = Attendance::where('user_id', $user->id)
         ->where('date', $today)

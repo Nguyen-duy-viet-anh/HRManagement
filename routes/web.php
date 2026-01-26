@@ -57,6 +57,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/my-profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::get('/colleagues', [ProfileController::class, 'colleagues'])->name('colleagues.index');
         Route::post('/self-check-in', [AttendanceController::class, 'selfCheckIn'])->name('attendance.self');
+        Route::get('/my-attendance-history', [AttendanceController::class, 'history'])->name('attendance.history');
     });
 
 });
