@@ -46,8 +46,23 @@ class ProfileController extends Controller
 
     // 3. Xử lý Upload ảnh (nếu có)
     if ($request->hasFile('avatar')) {
-        // Lưu file vào storage/app/public/avatars
-        $path = $request->file('avatar')->store('avatars', 'public');
+        // Xóa ảnh cũ
+        if ($user->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->avatar)) {
+             \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar);
+        }
+
+        // Kiểm tra logic lưu trữ giống UserController
+        if ($user->company_id) {
+            $folderPath = "companies/{$user->company_id}/users/{$user->id}";
+        } else {
+            $folderPath = "avatars";
+        }
+
+        $file = $request->file('avatar');
+        $filename = 'avatar_' . time() . '.' . $file->getClientOriginalExtension();
+        
+        // Dùng storeAs để đặt tên file và đường dẫn cụ thể
+        $path = $file->storeAs($folderPath, $filename, 'public');
         $user->avatar = $path;
     }
 

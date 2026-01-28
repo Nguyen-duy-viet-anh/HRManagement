@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage; 
+use Illuminate\Support\Str;
+
+
 
 class UserController extends Controller
 {
@@ -63,43 +66,55 @@ class UserController extends Controller
         return view('users.form', compact('companies'));
     }
 
-    // 3. LƯU NHÂN VIÊN MỚI (Có xử lý Avatar)
+    // 3. LƯU NHÂN VIÊN MỚI 
     public function store(Request $request)
     {
-        $user = Auth::user();
+        $currentUser = Auth::user();
 
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:6',
-            'company_id' => 'required',
+            'company_id' => 'nullable',
             'base_salary' => 'required|numeric',
-            'avatar' => 'nullable|image|max:2048', // Validate ảnh
+            'avatar' => 'nullable|image|max:2048',
         ]);
 
         $data = $request->all();
         $data['password'] = Hash::make($request->password);
 
-        // Xử lý upload ảnh (Nếu có)
-        if ($request->hasFile('avatar')) {
-            $data['avatar'] = $request->file('avatar')->store('avatars', 'public');
+        // Tạo UUID
+        $newUserId = (string) Str::uuid();
+        $data['id'] = $newUserId;
+
+        // Xử lý Role 1 (Quản lý) chỉ được thêm người vào công ty mình
+        if ($currentUser->role == 1) {
+            $data['company_id'] = $currentUser->company_id;
         }
 
-        // Bảo mật: Nếu là Quản lý, ép buộc company_id là của chính họ
-        if ($user->role == 1) {
-            $data['company_id'] = $user->company_id;
-            // Không cho tạo Admin
-            if (isset($data['role']) && $data['role'] == 0) {
-                $data['role'] = 2; 
+        // --- XỬ LÝ ẢNH ---
+        if ($request->hasFile('avatar')) {
+            $file = $request->file('avatar');
+            $filename = 'avatar_' . time() . '.' . $file->getClientOriginalExtension();
+
+            // LOGIC PHÂN LOẠI:
+            if (!empty($data['company_id'])) {
+                // A. Có công ty -> Lưu vào folder của công ty đó
+                $folderPath = "companies/{$data['company_id']}/users/{$newUserId}";
+            } else {
+                // B. Admin Tổng (ko có công ty) -> Lưu vào 'avatars' chung chung (đơn giản)
+                $folderPath = "avatars";
             }
+
+            $path = $file->storeAs($folderPath, $filename, 'public');
+            $data['avatar'] = $path;
         }
 
         User::create($data);
 
         return redirect()->route('users.index')->with('success', 'Thêm nhân viên thành công.');
     }
-
-    // 4. FORM SỬA (Trỏ về users.form)
+    // 4. FORM SỬA
     public function edit(string $id)
     {
         $targetUser = User::findOrFail($id);
@@ -116,59 +131,72 @@ class UserController extends Controller
             $companies = Company::select('id', 'name')->get();
         }
 
-        // Truyền biến 'user' -> Form hiểu là SỬA
         return view('users.form', [
             'user' => $targetUser, 
             'companies' => $companies
         ]);
     }
     
-    // 5. CẬP NHẬT (Có xử lý Avatar và Xóa ảnh cũ)
+    // 5. CẬP NHẬT 
     public function update(Request $request, string $id)
     {
         $targetUser = User::findOrFail($id);
         $currentUser = Auth::user();
 
+        // 1. Check quyền
         if ($currentUser->role == 1 && $targetUser->company_id != $currentUser->company_id) {
             abort(403, 'Bạn không có quyền cập nhật nhân viên này.');
         }
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,'.$id,
             'base_salary' => 'required|numeric',
             'avatar' => 'nullable|image|max:2048',
         ]);
 
         $data = $request->all();
 
-        // Xử lý mật khẩu
+        // 2. Xử lý Password
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         } else {
-            unset($data['password']); // Bỏ password khỏi mảng data để không bị ghi đè thành null
+            unset($data['password']);
         }
 
-        // Xử lý Avatar: Upload ảnh mới và xóa ảnh cũ
-        if ($request->hasFile('avatar')) {
-            // Xóa ảnh cũ nếu có
-            if ($targetUser->avatar) {
-                Storage::disk('public')->delete($targetUser->avatar);
-            }
-            $data['avatar'] = $request->file('avatar')->store('avatars', 'public');
-        }
-
-        // Bảo mật Role
+        // 3. Xử lý Role 1 (Quản lý) - Bắt buộc set lại company_id để tránh hack form
         if ($currentUser->role == 1) {
             $data['company_id'] = $currentUser->company_id;
+            // Nếu quản lý cố tình set role=0 (Admin) -> ép về 2 (Nhân viên)
             if (isset($data['role']) && $data['role'] == 0) {
                 $data['role'] = 2; 
             }
         }
 
+        // 4. Xử lý Ảnh (Logic phân loại thư mục bạn đã làm đúng)
+        if ($request->hasFile('avatar')) {
+            if ($targetUser->avatar && Storage::disk('public')->exists($targetUser->avatar)) {
+                Storage::disk('public')->delete($targetUser->avatar);
+            }
+
+            // Ưu tiên lấy company_id mới (nếu có trong data), nếu không lấy cái cũ
+            $companyId = $data['company_id'] ?? $targetUser->company_id;
+
+            if ($companyId) {
+                $folderPath = "companies/{$companyId}/users/{$targetUser->id}";
+            } else {
+                $folderPath = "avatars";
+            }
+
+            $file = $request->file('avatar');
+            $filename = 'avatar_' . time() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs($folderPath, $filename, 'public');
+            $data['avatar'] = $path;
+        }
+
+        // 5. Update 1 lần duy nhất
         $targetUser->update($data);
 
-        return redirect()->route('users.index')->with('success', 'Cập nhật thông tin thành công.');
+        return redirect()->route('users.index')->with('success', 'Cập nhật thành công.');
     }
 
     // 6. XÓA (Có xóa file ảnh)
@@ -186,8 +214,14 @@ class UserController extends Controller
         }
 
         // Xóa ảnh đại diện khỏi ổ cứng trước khi xóa user (để tiết kiệm dung lượng)
-        if ($targetUser->avatar) {
-            Storage::disk('public')->delete($targetUser->avatar);
+        if ($targetUser->company_id) {
+            // Nếu là nhân viên công ty -> Xóa cả folder riêng của họ trong công ty
+            Storage::disk('public')->deleteDirectory("companies/{$targetUser->company_id}/users/{$targetUser->id}");
+        } else {
+            // Nếu là Admin Tổng -> Chỉ xóa file ảnh (vì folder 'avatars' dùng chung, không xóa folder được)
+            if ($targetUser->avatar) {
+                Storage::disk('public')->delete($targetUser->avatar);
+            }
         }
 
         $targetUser->delete();

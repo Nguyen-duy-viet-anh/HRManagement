@@ -20,7 +20,21 @@ class User extends Authenticatable
         'gender', 'birthday', 'phone', 'address', 'start_date', 
         'base_salary', 'status', 'avatar'
     ];
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
+    public function getAvatarUrlAttribute()
+{
+    if ($this->avatar && filter_var($this->avatar, FILTER_VALIDATE_URL)) {
+        return $this->avatar;
+    }
+    if ($this->avatar) {
+        return asset('storage/' . $this->avatar);
+    }
+    return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=random&color=fff';
+}
     // Tự động tạo UUID khi tạo User mới
     protected static function boot()
     {

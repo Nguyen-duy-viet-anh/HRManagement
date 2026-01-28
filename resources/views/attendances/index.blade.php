@@ -128,6 +128,7 @@
                         {{ $users->appends([
                             'date' => $date, 
                             'company_id' => $company_id,
+                            
                             'search_name' => $search_name ?? ''
                         ])->links('pagination::bootstrap-5') }}
                     @endif

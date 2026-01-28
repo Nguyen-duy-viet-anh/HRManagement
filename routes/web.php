@@ -62,11 +62,3 @@ Route::middleware('auth')->group(function () {
 
 });
 
-// ROUTE CỨU HỘ
-Route::get('/reset-all', function() {
-    Artisan::call('route:clear');
-    Artisan::call('config:clear');
-    Artisan::call('cache:clear');
-    Session::flush();
-    return '<h1>ĐÃ RESET THÀNH CÔNG! <a href="/">Đăng nhập lại</a></h1>';
-});

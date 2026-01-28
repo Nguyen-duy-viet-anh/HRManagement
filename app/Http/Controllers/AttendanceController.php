@@ -8,6 +8,7 @@ use App\Models\Attendance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache; // Quan trọng để xóa cache dashboard
 use Illuminate\Support\Facades\Auth;
+use App\Jobs\StoreAttendanceJob;
 
 class AttendanceController extends Controller
 {
@@ -16,8 +17,8 @@ public function index(Request $request)
     $date = $request->input('date', date('Y-m-d'));
     $company_id = $request->input('company_id');
     $search_name = $request->input('search_name'); 
-    
-    // 1. NHẬN THÊM BIẾN TRẠNG THÁI TỪ VIEW (Mặc định là 'all')
+
+
     $status = $request->input('status', 'all'); 
 
     $user = Auth::user();
@@ -39,14 +40,13 @@ public function index(Request $request)
             $query->where('name', 'LIKE', "%{$search_name}%");
         }
 
-        // --- B. LỌC THEO TRẠNG THÁI (CODE MỚI) ---
+        // --- B. LỌC THEO TRẠNG THÁI ---
         if ($status == '1') {
-            // Lọc người CÓ bản ghi chấm công status=1 vào ngày đó
             $query->whereHas('attendances', function ($q) use ($date) {
                 $q->where('date', $date)->where('status', 1);
             });
         } elseif ($status == '0') {
-            // Lọc người KHÔNG CÓ bản ghi chấm công status=1 (Bao gồm chưa có record hoặc status=0)
+            // Lọc người KHÔNG CÓ bản ghi chấm công status=1 
             $query->whereDoesntHave('attendances', function ($q) use ($date) {
                 $q->where('date', $date)->where('status', 1);
             });
@@ -56,7 +56,6 @@ public function index(Request $request)
         $users = $query->orderBy('id', 'asc')->paginate(15); 
 
         // --- D. GẮN TRẠNG THÁI HIỂN THỊ RA VIEW ---
-        // (Đoạn này giữ nguyên để hiển thị nút bật tắt đúng trạng thái)
         $userIds = $users->pluck('id')->toArray();
         $attendances = Attendance::whereIn('user_id', $userIds)
                                  ->where('date', $date)
@@ -77,12 +76,10 @@ public function store(Request $request)
 {
     $user = Auth::user();
     
-    // --- LOGIC BẢO MẬT KHI LƯU ---
-    // Nếu là Quản lý,
+    // 1. Logic bảo mật Role
     if ($user->role == 1) {
         $request->merge(['company_id' => $user->company_id]);
     }
-    // ----------------------------
 
     $request->validate([
         'date' => 'required|date',
@@ -93,35 +90,23 @@ public function store(Request $request)
     $user_ids = $request->user_ids ?? [];     
     $present_ids = $request->present ?? []; 
 
-    // Kiểm tra thêm: Nếu là Role 1, đảm bảo user_ids gửi lên phải thuộc công ty mình
-    // (Đoạn này nâng cao, tạm thời logic trên đã đủ chặn 99%)
-
-    foreach ($user_ids as $user_id) {
-        $status = isset($present_ids[$user_id]) ? 1 : 0;
-
-        Attendance::updateOrCreate(
-            [
-                'user_id' => $user_id, 
-                'date' => $date
-            ], 
-            [
-                'status' => $status,
-                'company_id' => $request->company_id 
-            ]
-        );
+    // 2. Logic lọc ID bảo mật (Như tôi đã khuyên ở câu trả lời trước)
+    if ($user->role == 1) {
+        $validUserIds = User::where('company_id', $user->company_id)
+                            ->whereIn('id', $user_ids)
+                            ->pluck('id')
+                            ->toArray();
+        $user_ids = $validUserIds;
     }
+    
+    StoreAttendanceJob::dispatch($date, $request->company_id, $user_ids, $present_ids);
 
-    // Xóa Cache
-    Cache::forget("dashboard_stats_role_0_comp_"); 
-    if ($request->company_id) {
-        Cache::forget("dashboard_stats_role_1_comp_{$request->company_id}");
-    }
-
+    // 4. Trả về ngay lập tức, không cần chờ lưu xong
     return redirect()->route('attendance.index', [
         'company_id' => $request->company_id, 
         'date' => $date,
         'page' => $request->page 
-    ])->with('success', 'Đã lưu dữ liệu thành công!');
+    ])->with('success', 'Đã lưu thành công .');
 }
 
     // Hàm này dành cho Nhân viên tự bấm nút Check-in
