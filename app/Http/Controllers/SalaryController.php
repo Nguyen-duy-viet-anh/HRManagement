@@ -19,11 +19,11 @@ public function index(Request $request)
     
     // --- LOGIC PHÂN QUYỀN ---
     if ($user->role == 1) {
-        $company_id = $user->company_id; // Ép buộc
+        $company_id = $user->company_id;
     } else {
-        $company_id = $request->input('company_id'); // Admin chọn
+        $company_id = $request->input('company_id');
     }
-    // -----------------------
+
 
     // Logic lấy danh sách công ty cho Dropdown
     $companies = [];
@@ -75,21 +75,39 @@ public function export(Request $request)
     $user = Auth::user();
     $month = $request->input('month', date('Y-m'));
     
-    // --- LOGIC PHÂN QUYỀN EXPORT ---
     if ($user->role == 1) {
         $company_id = $user->company_id;
     } else {
         $company_id = $request->input('company_id');
     }
-    // ------------------------------
 
     if (!$company_id) {
         return back()->with('error', 'Vui lòng chọn công ty.');
     }
 
-    // ... (Phần còn lại của logic export giữ nguyên, 
-    // code này sẽ tự động chạy với $company_id đã được kiểm duyệt ở trên)
-    
-    // Code cũ của bạn ở đây...
+    $company = Company::find($company_id);
+    $standard_days = $company->standard_working_days ?: 26;
+
+    $users = User::where('company_id', $company_id)
+                 ->select('id', 'name', 'email', 'base_salary')
+                 ->get(); 
+
+    $userIds = $users->pluck('id')->toArray();
+
+    $attendanceCounts = Attendance::whereIn('user_id', $userIds)
+        ->where('date', 'like', "$month%")
+        ->where('status', 1)
+        ->selectRaw('user_id, COUNT(*) as work_days')
+        ->groupBy('user_id')
+        ->pluck('work_days', 'user_id');
+
+    foreach ($users as $u) {
+        $work_days = $attendanceCounts->get($u->id, 0);
+        $u->work_days = $work_days;
+        $salary_per_day = ($standard_days > 0) ? ($u->base_salary / $standard_days) : 0;
+        $u->total_salary = round($salary_per_day * $work_days);
+    }
+
+    return view('salaries.export', compact('users', 'month'));
 }
 }

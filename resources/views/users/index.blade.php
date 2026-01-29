@@ -115,12 +115,19 @@
                             </td>
                             <td class="text-center">
                                 <div class="btn-group shadow-sm">
+                                    {{-- [MỚI] Nút Xem lịch sử chấm công --}}
+                                    <a href="{{ route('users.attendance', $user->id) }}" class="btn btn-sm btn-outline-primary" title="Xem lịch sử chấm công">
+                                        <i class="bi bi-calendar-week"></i>
+                                    </a>
+
+                                    {{-- Nút Sửa --}}
                                     <a href="{{ route('users.edit', $user->id) }}" class="btn btn-sm btn-outline-warning" title="Sửa">
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                     
+                                    {{-- Nút Xóa --}}
                                     <form action="{{ route('users.destroy', $user->id) }}" method="POST" 
-                                          onsubmit="return confirm('Bạn có chắc chắn muốn xóa nhân viên này?');" class="d-inline">
+                                        onsubmit="return confirm('Bạn có chắc chắn muốn xóa nhân viên này?');" class="d-inline">
                                         @csrf 
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">

@@ -1,176 +1,206 @@
 @extends('layout')
 
 @section('content')
-@php
-    $isEdit = isset($user);
-    $title = $isEdit ? 'Chỉnh sửa nhân viên: ' . $user->name : 'Thêm nhân viên mới';
-    $action = $isEdit ? route('users.update', $user->id) : route('users.store');
-    
-    // Lấy user đang đăng nhập để kiểm tra quyền
-    $authUser = Auth::user();
-@endphp
-
-<div class="card shadow">
-    <div class="card-header {{ $isEdit ? 'bg-primary text-white' : '' }}">
-        <h5 class="m-0 {{ $isEdit ? '' : 'text-primary' }}">{{ $title }}</h5>
-    </div>
-    <div class="card-body">
+<div class="container py-4">
+    <div class="card shadow border-0">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-primary">
+                @if(isset($user))
+                    <i class="bi bi-pencil-square me-2"></i>Sửa hồ sơ: {{ $user->name }}
+                @else
+                    <i class="bi bi-person-plus-fill me-2"></i>Thêm nhân viên mới
+                @endif
+            </h5>
+            <a href="{{ route('users.index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Quay lại danh sách
+            </a>
+        </div>
         
-        {{-- Hiển thị lỗi Validate --}}
-        @if ($errors->any())
-            <div class="alert alert-danger">
-                <ul class="mb-0">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
-
-        <form action="{{ $action }}" method="POST" enctype="multipart/form-data">
-            @csrf
-            @if($isEdit)
-                @method('PUT')
+        <div class="card-body p-4">
+            {{-- Hiển thị lỗi validate nếu có --}}
+            @if ($errors->any())
+                <div class="alert alert-danger">
+                    <ul class="mb-0 small">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
             @endif
-            
-            {{-- PHẦN 1: THÔNG TIN TÀI KHOẢN --}}
-            <div class="row">
-                <div class="col-md-12 mb-3">
-                    <h6 class="text-secondary border-bottom pb-2">1. Thông tin tài khoản</h6>
-                </div>
-                
-                <div class="col-md-6 mb-3">
-                    <label class="fw-bold">Họ và tên <span class="text-danger">*</span></label>
-                    <input type="text" name="name" class="form-control" 
-                           value="{{ old('name', $user->name ?? '') }}" required>
-                </div>
-                
-                <div class="col-md-6 mb-3">
-                    <label class="fw-bold">Email <span class="text-danger">*</span></label>
-                    <input type="email" name="email" class="form-control" 
-                           value="{{ old('email', $user->email ?? '') }}" required>
-                </div>
 
-                {{-- Mật khẩu: Bắt buộc khi tạo mới, Tùy chọn khi sửa --}}
-                <div class="col-md-6 mb-3">
-                    <label class="fw-bold">
-                        Mật khẩu 
-                        @if(!$isEdit) <span class="text-danger">*</span> @endif
-                    </label>
-                    <input type="password" name="password" class="form-control" 
-                           placeholder="{{ $isEdit ? 'Bỏ trống nếu không đổi' : 'Tối thiểu 6 ký tự' }}"
-                           {{ !$isEdit ? 'required' : '' }}>
-                </div>
+            {{-- FORM BẮT ĐẦU --}}
+            <form action="{{ isset($user) ? route('users.update', $user->id) : route('users.store') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                @if(isset($user))
+                    @method('PUT')
+                @endif
 
-                <div class="col-md-6 mb-3">
-                    <label class="fw-bold">Công ty <span class="text-danger">*</span></label>
-                    @if($authUser->role == 1) 
-                        {{-- Nếu là Quản lý: Chỉ được xem, không được sửa công ty --}}
-                        <input type="text" class="form-control bg-light" 
-                               value="{{ $isEdit ? ($user->company->name ?? 'N/A') : $authUser->company->name }}" readonly>
-                        {{-- Input ẩn để gửi dữ liệu đi --}}
-                        <input type="hidden" name="company_id" 
-                               value="{{ $isEdit ? $user->company_id : $authUser->company_id }}">
-                    @else
-                        {{-- Nếu là Admin: Được chọn công ty thoải mái --}}
-                        <select name="company_id" class="form-select" required>
-                            <option value="">-- Chọn công ty --</option>
-                            @foreach($companies as $company)
-                                <option value="{{ $company->id }}" 
-                                    {{ (old('company_id', $user->company_id ?? '') == $company->id) ? 'selected' : '' }}>
-                                    {{ $company->name }}
+                <div class="row g-3">
+                    {{-- 1. CỘT TRÁI: THÔNG TIN ĐĂNG NHẬP --}}
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Họ và tên <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" value="{{ old('name', $user->name ?? '') }}" required placeholder="Ví dụ: Nguyễn Văn A">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Email (Tên đăng nhập) <span class="text-danger">*</span></label>
+                        <input type="email" name="email" class="form-control" value="{{ old('email', $user->email ?? '') }}" required placeholder="email@example.com">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Mật khẩu {{ isset($user) ? '(Bỏ trống nếu không đổi)' : '*' }}</label>
+                        <input type="password" name="password" class="form-control" {{ isset($user) ? '' : 'required' }}>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Lương cơ bản (VNĐ) <span class="text-danger">*</span></label>
+                        <input type="number" name="base_salary" class="form-control" value="{{ old('base_salary', $user->base_salary ?? 0) }}" required>
+                    </div>
+
+                    {{-- Chọn Công ty (Chỉ hiện nếu là Admin tổng) --}}
+                    @if(Auth::user()->role == 0)
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Thuộc công ty</label>
+                        <select name="company_id" class="form-select">
+                            <option value="">-- Không chọn (Admin hệ thống) --</option>
+                            @foreach($companies as $c)
+                                <option value="{{ $c->id }}" {{ (old('company_id', $user->company_id ?? '') == $c->id) ? 'selected' : '' }}>
+                                    {{ $c->name }}
                                 </option>
                             @endforeach
                         </select>
+                    </div>
                     @endif
-                </div>
 
-                <div class="col-md-6 mb-3">
-                    <label class="fw-bold">Vai trò</label>
-                    <select name="role" class="form-select" required>
-                        {{-- Admin hệ thống chỉ Admin mới bổ nhiệm được --}}
-                        @if($authUser->role == 0)
-                            <option value="0" {{ (old('role', $user->role ?? '') == 0) ? 'selected' : '' }}>Super Admin</option>
-                        @endif
-                        
-                        <option value="1" {{ (old('role', $user->role ?? '') == 1) ? 'selected' : '' }}>Quản lý (Admin Công ty)</option>
-                        <option value="2" {{ (old('role', $user->role ?? 2) == 2) ? 'selected' : '' }}>Nhân viên</option>
-                    </select>
-                </div>
-                
-                @if($isEdit)
-                <div class="col-md-6 mb-3">
-                    <label class="fw-bold">Trạng thái làm việc</label>
-                    <select name="status" class="form-select">
-                        <option value="1" {{ (old('status', $user->status ?? 1) == 1) ? 'selected' : '' }}>Đang làm việc</option>
-                        <option value="0" {{ (old('status', $user->status ?? 1) == 0) ? 'selected' : '' }}>Đã nghỉ</option>
-                    </select>
-                </div>
-                @endif
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Phân quyền</label>
+                        <select name="role" class="form-select">
+                            <option value="2" {{ (old('role', $user->role ?? 2) == 2) ? 'selected' : '' }}>Nhân viên</option>
+                            <option value="1" {{ (old('role', $user->role ?? 2) == 1) ? 'selected' : '' }}>Quản lý công ty</option>
+                            @if(Auth::user()->role == 0)
+                                <option value="0" {{ (old('role', $user->role ?? 2) == 0) ? 'selected' : '' }}>Admin Tổng</option>
+                            @endif
+                        </select>
+                    </div>
 
-                {{-- PHẦN 2: THÔNG TIN CÁ NHÂN --}}
-                <div class="col-md-12 mb-3 mt-3">
-                    <h6 class="text-secondary border-bottom pb-2">2. Thông tin cá nhân</h6>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Ngày sinh</label>
-                    <input type="date" name="birthday" class="form-control" 
-                           value="{{ old('birthday', $user->birthday ?? '') }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label>Giới tính</label>
-                    <select name="gender" class="form-select">
-                        <option value="male" {{ (old('gender', $user->gender ?? '') == 'male') ? 'selected' : '' }}>Nam</option>
-                        <option value="female" {{ (old('gender', $user->gender ?? '') == 'female') ? 'selected' : '' }}>Nữ</option>
-                        <option value="other" {{ (old('gender', $user->gender ?? '') == 'other') ? 'selected' : '' }}>Khác</option>
-                    </select>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label>Số điện thoại</label>
-                    <input type="text" name="phone" class="form-control" 
-                           value="{{ old('phone', $user->phone ?? '') }}">
-                </div>
-                <div class="col-12 mb-3">
-                    <label>Địa chỉ thường trú</label>
-                    <textarea name="address" class="form-control" rows="2">{{ old('address', $user->address ?? '') }}</textarea>
-                </div>
-                
-                <div class="col-md-6 mb-3">
-                    <label>Ảnh đại diện</label>
-                    <input type="file" name="avatar" class="form-control">
-                    @if($isEdit && $user->avatar)
-                        <div class="mt-2">
-                            <small class="text-muted">Ảnh hiện tại:</small><br>
-                            <img src="{{ asset('storage/' . $user->avatar) }}" class="rounded border mt-1" width="60" height="60" style="object-fit: cover;">
+                    <div class="col-12 mt-3">
+                        <label class="form-label fw-bold">Ảnh đại diện</label>
+                        <div class="d-flex align-items-center gap-3">
+                            @if(isset($user) && $user->avatar)
+                                <img src="{{ $user->avatar_url }}" class="rounded-circle border shadow-sm" width="60" height="60" style="object-fit: cover;">
+                            @endif
+                            <input type="file" name="avatar" class="form-control">
                         </div>
-                    @endif
+                    </div>
+
+                    <hr class="my-4 text-muted">
+
+                    {{-- 2. PHẦN QUẢN LÝ TÀI LIỆU (ĐIỂM NHẤN CỦA BẠN) --}}
+                    <div class="col-12">
+                        <h6 class="fw-bold text-primary mb-3"><i class="bi bi-folder2-open me-2"></i>Hồ sơ đính kèm (CCCD, Bằng cấp, Hợp đồng)</h6>
+                        
+                        {{-- Ô upload nhiều file --}}
+                        <div class="bg-light p-4 rounded border border-dashed mb-4 text-center">
+                            <label for="fileUpload" class="form-label fw-bold mb-2 cursor-pointer text-primary">
+                                <i class="bi bi-cloud-arrow-up display-6"></i><br>
+                                Click để chọn tài liệu tải lên
+                            </label>
+                            <input type="file" id="fileUpload" name="documents[]" class="form-control" multiple>
+                            <small class="text-muted d-block mt-2">
+                                (Giữ phím <strong>Ctrl</strong> để chọn nhiều file cùng lúc. Hỗ trợ ảnh, PDF, Doc...)
+                            </small>
+                        </div>
+
+                        {{-- DANH SÁCH FILE ĐÃ CÓ (Chỉ hiện khi Sửa nhân viên) --}}
+                        @if(isset($user) && $user->files->count() > 0)
+                            <div class="d-flex justify-content-between align-items-end mb-3">
+                                <div>
+                                    <label class="fw-bold text-dark mb-0">Tài liệu hiện có ({{ $user->files->count() }}):</label>
+                                    <div class="small text-muted">Hiển thị 4 tài liệu mới nhất</div>
+                                </div>
+                                
+                                {{-- [QUAN TRỌNG] NÚT XEM TOÀN BỘ ALBUM --}}
+                                <a href="{{ route('users.files', $user->id) }}" class="btn btn-sm btn-primary fw-bold shadow-sm">
+                                    <i class="bi bi-grid-3x3-gap-fill me-1"></i> Quản lý toàn bộ Album
+                                </a>
+                            </div>
+
+                            {{-- Hiển thị rút gọn (4 file mới nhất) --}}
+                            <div class="row g-2">
+                                @foreach($user->files->sortByDesc('created_at')->take(4) as $file)
+                                    <div class="col-md-3 col-6">
+                                        <div class="d-flex align-items-center p-2 border rounded bg-white shadow-sm position-relative h-100">
+                                            {{-- Icon phân loại file --}}
+                                            <div class="me-2 fs-4">
+                                                @if(\Illuminate\Support\Str::endsWith(strtolower($file->file_path), ['.jpg', '.png', '.jpeg']))
+                                                    <i class="bi bi-image text-success"></i>
+                                                @elseif(\Illuminate\Support\Str::endsWith(strtolower($file->file_path), ['.pdf']))
+                                                    <i class="bi bi-file-pdf text-danger"></i>
+                                                @else
+                                                    <i class="bi bi-file-earmark-text text-secondary"></i>
+                                                @endif
+                                            </div>
+                                            
+                                            {{-- Tên file (Click để xem) --}}
+                                            <div class="text-truncate small fw-bold" style="flex: 1;">
+                                                <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank" class="text-decoration-none text-dark" title="{{ $file->original_name }}">
+                                                    {{ $file->original_name }}
+                                                </a>
+                                            </div>
+
+                                            {{-- Nút xóa nhanh --}}
+                                            <button type="button" class="btn btn-link text-danger p-0 ms-2" onclick="deleteFile('{{ $file->id }}')" title="Xóa file này">
+                                                <i class="bi bi-x-circle-fill"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            {{-- Thông báo nếu còn nhiều file ẩn --}}
+                            @if($user->files->count() > 4)
+                                <div class="text-center mt-2 small text-muted fst-italic">
+                                    ... còn {{ $user->files->count() - 4 }} tài liệu khác. Hãy bấm nút "Quản lý toàn bộ Album" để xem.
+                                </div>
+                            @endif
+                        @endif
+                    </div>
                 </div>
 
-                {{-- PHẦN 3: LƯƠNG & HỢP ĐỒNG --}}
-                <div class="col-md-12 mb-3 mt-3">
-                    <h6 class="text-secondary border-bottom pb-2">3. Hợp đồng & Lương</h6>
+                {{-- NÚT LƯU --}}
+                <div class="mt-5 text-end border-top pt-3">
+                    <button type="submit" class="btn btn-success px-5 fw-bold shadow-lg">
+                        <i class="bi bi-check-circle-fill me-2"></i>LƯU THÔNG TIN
+                    </button>
                 </div>
-
-                <div class="col-md-6 mb-3">
-                    <label>Ngày bắt đầu làm việc</label>
-                    <input type="date" name="start_date" class="form-control" 
-                           value="{{ old('start_date', $user->start_date ?? date('Y-m-d')) }}">
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label>Lương cơ bản (VNĐ)</label>
-                    <input type="number" name="base_salary" class="form-control" 
-                           value="{{ old('base_salary', $user->base_salary ?? 5000000) }}">
-                </div>
-            </div>
-
-            <div class="mt-4">
-                <button class="btn {{ $isEdit ? 'btn-primary' : 'btn-success' }} fw-bold">
-                    <i class="bi bi-save me-1"></i> {{ $isEdit ? 'Lưu cập nhật' : 'Tạo nhân viên mới' }}
-                </button>
-                <a href="{{ route('users.index') }}" class="btn btn-secondary ms-2">Quay lại danh sách</a>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
+
+{{-- SCRIPT XÓA FILE NHANH --}}
+<script>
+    function deleteFile(fileId) {
+        if(confirm('CẢNH BÁO: Bạn có chắc chắn muốn xóa vĩnh viễn file này không?')) {
+            let form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/user-files/' + fileId; 
+            
+            let csrfToken = document.createElement('input');
+            csrfToken.type = 'hidden';
+            csrfToken.name = '_token';
+            csrfToken.value = '{{ csrf_token() }}';
+            form.appendChild(csrfToken);
+            
+            let methodField = document.createElement('input');
+            methodField.type = 'hidden';
+            methodField.name = '_method';
+            methodField.value = 'DELETE';
+            form.appendChild(methodField);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+</script>
 @endsection

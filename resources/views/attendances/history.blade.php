@@ -1,88 +1,82 @@
 @extends('layout')
 
 @section('content')
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        
-        {{-- 1. Card Tổng quan & Bộ lọc --}}
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-body">
-                <form method="GET" action="{{ route('attendance.history') }}" class="row align-items-end">
-                    <div class="col-md-6 mb-3 mb-md-0">
-                        <h5 class="fw-bold text-primary mb-1">LỊCH SỬ CHẤM CÔNG</h5>
-                        <p class="text-muted small mb-0">
-                            Tổng ngày công tháng {{ $month }}/{{ $year }}: 
-                            <span class="fw-bold text-success fs-5">{{ $totalWorkDays }}</span> ngày
-                        </p>
-                    </div>
-
-                    <div class="col-md-3">
-                        <label class="small fw-bold text-muted">Tháng</label>
-                        <select name="month" class="form-select" onchange="this.form.submit()">
-                            @for($m = 1; $m <= 12; $m++)
-                                <option value="{{ $m }}" {{ $m == $month ? 'selected' : '' }}>Tháng {{ $m }}</option>
-                            @endfor
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="small fw-bold text-muted">Năm</label>
-                        <select name="year" class="form-select" onchange="this.form.submit()">
-                            @for($y = 2026; $y <= 2030; $y++)
-                                <option value="{{ $y }}" {{ $y == $year ? 'selected' : '' }}>{{ $y }}</option>
-                            @endfor
-                        </select>
-                    </div>
-                </form>
-            </div>
+<div class="container py-4">
+    <div class="card shadow border-0">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-primary mb-0">
+                <i class="bi bi-clock-history me-2"></i>
+                Lịch sử đi làm: {{ $targetUser->name }}
+            </h5>
+            
+            {{-- Nút Quay lại thông minh --}}
+            @if(Auth::user()->role == 0 || (Auth::user()->role == 1 && Auth::id() != $targetUser->id))
+                <a href="{{ route('users.index') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i> Về danh sách nhân viên
+                </a>
+            @else
+                <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i> Về trang chủ
+                </a>
+            @endif
         </div>
 
-        {{-- 2. Danh sách chi tiết --}}
-        <div class="card shadow border-0">
-            <div class="card-body p-0">
-                @if($attendances->count() > 0)
-                    <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-        <thead class="bg-light">
-            <tr>
-                <th class="ps-4 py-3">Ngày đã đi làm</th>
-                <th>Giờ chấm công</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($attendances as $item)
-            <tr>
-                <td class="ps-4">
-                    <div class="d-flex align-items-center">
-                        <div class="rounded-circle bg-success bg-opacity-10 text-success d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
-                            <i class="bi bi-check-lg fw-bold"></i>
-                        </div>
-                        <div>
-                            <div class="fw-bold text-dark">{{ \Carbon\Carbon::parse($item->date)->format('d/m/Y') }}</div>
-                            <small class="text-muted">
-                                Thứ {{ \Carbon\Carbon::parse($item->date)->dayOfWeek == 0 ? 'CN' : \Carbon\Carbon::parse($item->date)->dayOfWeek + 1 }}
-                            </small>
-                        </div>
-                    </div>
-                </td>
-                <td>
-                    <span class="fw-bold text-primary" style="font-family: monospace; font-size: 1.1em;">
-                        {{ $item->created_at->setTimezone('Asia/Ho_Chi_Minh')->format('H:i:s') }}
-                    </span>
-                </td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
-</div>
-                @else
-                    <div class="text-center py-5">
-                        <i class="bi bi-calendar-x fs-1 text-muted opacity-25"></i>
-                        <p class="text-muted mt-2">Chưa có dữ liệu chấm công trong tháng này.</p>
-                    </div>
-                @endif
+        <div class="card-body p-0">
+            @if($attendances->count() > 0)
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Ngày</th>
+                            <th class="text-center">Giờ vào</th>
+                            <th class="text-center">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    @foreach($attendances as $item)
+    <tr>
+        {{-- CỘT 1: CHỈ LẤY NGÀY (d/m/Y) --}}
+        <td class="ps-4">
+            <div class="fw-bold text-dark">
+                {{ \Carbon\Carbon::parse($item->date)->format('d/m/Y') }}
             </div>
-        </div>
+            {{-- Thêm thứ cho đẹp (Tùy chọn) --}}
+            <div class="small text-muted">
+                {{ \Carbon\Carbon::parse($item->date)->format('l') }}
+            </div>
+        </td>
 
+        {{-- CỘT 2: CHỈ LẤY GIỜ (H:i) --}}
+                    <td class="text-center">
+                        @if($item->check_in_time)
+                            <span class="fw-bold text-primary font-monospace fs-5">
+                                {{ \Carbon\Carbon::parse($item->check_in_time)->format('H:i') }}
+                            </span>
+                        @else
+                            <span class="text-muted small fst-italic">--:--</span>
+                        @endif
+                    </td>
+
+                    {{-- CỘT 3: TRẠNG THÁI --}}
+                    <td class="text-center">
+                        @if($item->status == 1 || $item->is_present)
+                            <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">
+                                Có mặt
+                            </span>
+                        @else
+                            <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">
+                                Vắng
+                            </span>
+                        @endif
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+                </table>
+                <div class="p-3">{{ $attendances->links() }}</div>
+            @else
+                <div class="p-5 text-center text-muted">Chưa có dữ liệu chấm công.</div>
+            @endif
+        </div>
     </div>
 </div>
 @endsection

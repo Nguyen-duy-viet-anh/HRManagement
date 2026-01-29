@@ -7,23 +7,22 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
-        /* Tinh chỉnh nhỏ cho giao diện sạch sẽ hơn */
         body {
-            background-color: #f5f7f9; /* Màu nền xám nhẹ dịu mắt */
+            background-color: #f5f7f9;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
         .navbar {
             background-color: #ffffff;
-            border-bottom: 1px solid #e1e4e8; /* Viền mỏng thay vì đổ bóng đậm */
+            border-bottom: 1px solid #e1e4e8;
         }
         .nav-link {
-            color: #6c757d !important; /* Màu chữ menu xám */
+            color: #6c757d !important;
             font-weight: 500;
             padding: 0.5rem 1rem;
             transition: color 0.2s;
         }
         .nav-link:hover, .nav-link.active {
-            color: #0d6efd !important; /* Hover hoặc Active màu xanh */
+            color: #0d6efd !important;
         }
         .dropdown-menu {
             border: none;
@@ -81,31 +80,33 @@
                                 <a class="nav-link {{ request()->is('salary*') ? 'active' : '' }}" 
                                 href="{{ route('salary.index') }}">Bảng lương</a>
                             </li>
+                            {{-- ĐÃ XÓA LINK GỬI THÔNG BÁO --}}
                         @endif
 
                         @if(Auth::user()->role == 2)
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->is('my-profile*') ? 'active fw-bold' : '' }}" 
-                                href="{{ route('profile.show') }}">Hồ sơ cá nhân</a>
+                                <a class="nav-link {{ request()->is('my-profile*') ? 'active' : '' }}" 
+                                href="{{ route('profile.show') }}">Hồ sơ</a>
                             </li>
                             
-                            {{-- MENU MỚI THÊM --}}
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->routeIs('attendance.history') ? 'active fw-bold' : '' }}" 
+                                <a class="nav-link {{ request()->routeIs('attendance.history') ? 'active' : '' }}" 
                                 href="{{ route('attendance.history') }}">Lịch sử chấm công</a>
                             </li>
-                            {{-- KẾT THÚC MENU MỚI --}}
 
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->is('colleagues*') ? 'active fw-bold' : '' }}" 
-                                href="{{ route('colleagues.index') }}">Danh sách đồng nghiệp</a>
+                                <a class="nav-link {{ request()->is('colleagues*') ? 'active' : '' }}" 
+                                href="{{ route('colleagues.index') }}">Đồng nghiệp</a>
                             </li>
                         @endif
+
                     @endauth
                 </ul>
 
                 <ul class="navbar-nav ms-auto align-items-center">
                     @auth
+                        {{-- ĐÃ XÓA CÁI CHUÔNG Ở ĐÂY --}}
+
                         @php
                             $user = Auth::user();
                             $avatar = $user->avatar;
@@ -119,7 +120,7 @@
                             }
                         @endphp
 
-                        {{-- Dropdown User tối giản --}}
+                        {{-- User Dropdown --}}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle d-flex align-items-center pe-0" href="#" role="button" data-bs-toggle="dropdown">
                                 <div class="text-end me-2 d-none d-lg-block">
@@ -144,6 +145,7 @@
                             </ul>
                         </li>
                     @else
+                        {{-- Nếu chưa đăng nhập --}}
                         <li class="nav-item">
                             <a href="{{ route('login') }}" class="btn btn-primary btn-sm px-4 rounded-pill fw-bold">Đăng nhập</a>
                         </li>
@@ -159,6 +161,13 @@
             <div class="alert alert-success border-0 shadow-sm d-flex align-items-center mb-4">
                 <i class="bi bi-check-circle-fill me-2 fs-5"></i>
                 <div>{{ session('success') }}</div>
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center mb-4">
+                <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                <div>{{ session('error') }}</div>
             </div>
         @endif
         

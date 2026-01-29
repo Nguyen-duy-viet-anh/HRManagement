@@ -10,15 +10,19 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up(): void {
-    Schema::create('user_files', function (Blueprint $table) {
-        $table->id();
-        // Ví dụ trong create_attendances_table.php
-        $table->foreignUuid('company_id')->constrained('companies')->onDelete('cascade');
-        $table->string('type'); // cv, cmt, hop_dong
-        $table->string('file_path');
-        $table->timestamps();
-    });
-}
+        Schema::create('user_files', function (Blueprint $table) {
+            $table->uuid('id')->primary(); // Dùng UUID
+            
+            // Liên kết với bảng users
+            $table->foreignUuid('user_id')->constrained('users')->onDelete('cascade');
+            
+            $table->string('file_path'); // Đường dẫn file
+            $table->string('original_name')->nullable(); // Tên file gốc (để hiển thị cho đẹp)
+            $table->string('type')->default('document'); // Loại file (cccd, cv, hop_dong...)
+            
+            $table->timestamps();
+        });
+    }
 
     /**
      * Reverse the migrations.

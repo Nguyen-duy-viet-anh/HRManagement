@@ -14,6 +14,7 @@ class Attendance extends Model
         'user_id',
         'company_id',
         'date',
+        'check_in_time',
         'status'
     ];
     

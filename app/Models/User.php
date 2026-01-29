@@ -5,37 +5,26 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Str; // Đừng quên dòng này
+use Illuminate\Support\Str; 
+use Illuminate\Database\Eloquent\Concerns\HasUuids; 
+use App\Models\UserFile; // Import model UserFile
+
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    // --- CẤU HÌNH UUID CHO USER ---
-    public $incrementing = false; // Tắt tự động tăng ID
-    protected $keyType = 'string'; // Khai báo ID là kiểu chuỗi
+    public $incrementing = false; 
+    protected $keyType = 'string';
 
     protected $fillable = [
         'name', 'email', 'password', 'role', 'company_id', 
         'gender', 'birthday', 'phone', 'address', 'start_date', 
         'base_salary', 'status', 'avatar'
     ];
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
+    
+    protected $hidden = ['password', 'remember_token'];
 
-    public function getAvatarUrlAttribute()
-{
-    if ($this->avatar && filter_var($this->avatar, FILTER_VALIDATE_URL)) {
-        return $this->avatar;
-    }
-    if ($this->avatar) {
-        return asset('storage/' . $this->avatar);
-    }
-    return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=random&color=fff';
-}
-    // Tự động tạo UUID khi tạo User mới
     protected static function boot()
     {
         parent::boot();
@@ -45,8 +34,24 @@ class User extends Authenticatable
             }
         });
     }
-    // ------------------------------
 
+    // Accessor Avatar
+    public function getAvatarUrlAttribute()
+    {
+        if ($this->avatar && filter_var($this->avatar, FILTER_VALIDATE_URL)) {
+            return $this->avatar;
+        }
+        if ($this->avatar) {
+            return asset('storage/' . $this->avatar);
+        }
+        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=random&color=fff';
+    }
+
+    // --- CÁC MỐI QUAN HỆ ---
+    
+    public function files() {
+        return $this->hasMany(UserFile::class, 'user_id', 'id');
+    }
     public function company() {
         return $this->belongsTo(Company::class);
     }
@@ -54,4 +59,5 @@ class User extends Authenticatable
     public function attendances() {
         return $this->hasMany(Attendance::class);
     }
+    
 }

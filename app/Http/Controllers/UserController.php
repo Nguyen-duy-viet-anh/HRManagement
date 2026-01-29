@@ -4,14 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Company;
+use App\Models\UserFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage; 
 use Illuminate\Support\Str;
-
-
-
 class UserController extends Controller
 {
     // 1. XEM DANH SÁCH
@@ -23,7 +21,6 @@ class UserController extends Controller
         
         $query = User::with('company');
 
-        // Phân quyền
         if ($user->role == 1) {
             $query->where('company_id', $user->company_id);
         } else {
@@ -32,7 +29,6 @@ class UserController extends Controller
             }
         }
 
-        // Tìm kiếm
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
@@ -40,7 +36,7 @@ class UserController extends Controller
             });
         }
 
-        $users = $query->orderBy('id', 'desc')->Paginate(100);
+        $users = $query->orderBy('id', 'desc')->Paginate(50); 
         
         $companies = [];
         if ($user->role == 0) {
@@ -50,23 +46,19 @@ class UserController extends Controller
         return view('users.index', compact('users', 'search', 'companies', 'company_id'));
     }
 
-    // 2. FORM THÊM MỚI (Trỏ về users.form)
+    // 2. FORM THÊM MỚI
     public function create()
     {
         $user = Auth::user();
-
-        // Lấy danh sách công ty tùy theo quyền
         if ($user->role == 1) {
             $companies = Company::where('id', $user->company_id)->get();
         } else {
             $companies = Company::select('id', 'name')->get();
         }
-
-        // Không truyền biến $user -> Form hiểu là THÊM MỚI
         return view('users.form', compact('companies'));
     }
 
-    // 3. LƯU NHÂN VIÊN MỚI 
+    // 3. LƯU NHÂN VIÊN MỚI
     public function store(Request $request)
     {
         $currentUser = Auth::user();
@@ -78,31 +70,27 @@ class UserController extends Controller
             'company_id' => 'nullable',
             'base_salary' => 'required|numeric',
             'avatar' => 'nullable|image|max:2048',
+            'documents.*' => 'nullable|file|max:5120' 
         ]);
 
         $data = $request->all();
         $data['password'] = Hash::make($request->password);
-
-        // Tạo UUID
+        
         $newUserId = (string) Str::uuid();
         $data['id'] = $newUserId;
 
-        // Xử lý Role 1 (Quản lý) chỉ được thêm người vào công ty mình
         if ($currentUser->role == 1) {
             $data['company_id'] = $currentUser->company_id;
         }
 
-        // --- XỬ LÝ ẢNH ---
+        // --- A. XỬ LÝ AVATAR ---
         if ($request->hasFile('avatar')) {
             $file = $request->file('avatar');
             $filename = 'avatar_' . time() . '.' . $file->getClientOriginalExtension();
 
-            // LOGIC PHÂN LOẠI:
             if (!empty($data['company_id'])) {
-                // A. Có công ty -> Lưu vào folder của công ty đó
                 $folderPath = "companies/{$data['company_id']}/users/{$newUserId}";
             } else {
-                // B. Admin Tổng (ko có công ty) -> Lưu vào 'avatars' chung chung (đơn giản)
                 $folderPath = "avatars";
             }
 
@@ -110,17 +98,42 @@ class UserController extends Controller
             $data['avatar'] = $path;
         }
 
-        User::create($data);
+        // Tạo User trước
+        $user = User::create($data);
+
+        // --- B. XỬ LÝ FILE ĐÍNH KÈM (CCCD, CV...) ---
+        if ($request->hasFile('documents')) {
+            foreach ($request->file('documents') as $file) {
+                $docName = time() . '_' . $file->getClientOriginalName();
+                
+                // Xác định folder lưu file
+                if ($user->company_id) {
+                    $docFolder = "companies/{$user->company_id}/users/{$user->id}/documents";
+                } else {
+                    $docFolder = "users/{$user->id}/documents";
+                }
+
+                $docPath = $file->storeAs($docFolder, $docName, 'public');
+
+                // Lưu vào bảng user_files
+                UserFile::create([
+                    'user_id' => $user->id,
+                    'file_path' => $docPath,
+                    'original_name' => $file->getClientOriginalName(),
+                    'type' => 'document'
+                ]);
+            }
+        }
 
         return redirect()->route('users.index')->with('success', 'Thêm nhân viên thành công.');
     }
+
     // 4. FORM SỬA
     public function edit(string $id)
     {
-        $targetUser = User::findOrFail($id);
+        $targetUser = User::with('files')->findOrFail($id); // Eager load files
         $currentUser = Auth::user();
 
-        // BẢO MẬT
         if ($currentUser->role == 1 && $targetUser->company_id != $currentUser->company_id) {
             abort(403, 'Bạn không có quyền sửa nhân viên của công ty khác.');
         }
@@ -137,13 +150,12 @@ class UserController extends Controller
         ]);
     }
     
-    // 5. CẬP NHẬT 
+    // 5. CẬP NHẬT
     public function update(Request $request, string $id)
     {
         $targetUser = User::findOrFail($id);
         $currentUser = Auth::user();
 
-        // 1. Check quyền
         if ($currentUser->role == 1 && $targetUser->company_id != $currentUser->company_id) {
             abort(403, 'Bạn không có quyền cập nhật nhân viên này.');
         }
@@ -152,33 +164,31 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'base_salary' => 'required|numeric',
             'avatar' => 'nullable|image|max:2048',
+            'documents.*' => 'nullable|file|max:5120'
         ]);
 
         $data = $request->all();
 
-        // 2. Xử lý Password
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         } else {
             unset($data['password']);
         }
 
-        // 3. Xử lý Role 1 (Quản lý) - Bắt buộc set lại company_id để tránh hack form
+        // Bảo mật Role
         if ($currentUser->role == 1) {
             $data['company_id'] = $currentUser->company_id;
-            // Nếu quản lý cố tình set role=0 (Admin) -> ép về 2 (Nhân viên)
             if (isset($data['role']) && $data['role'] == 0) {
                 $data['role'] = 2; 
             }
         }
 
-        // 4. Xử lý Ảnh (Logic phân loại thư mục bạn đã làm đúng)
+        // --- A. XỬ LÝ AVATAR ---
         if ($request->hasFile('avatar')) {
             if ($targetUser->avatar && Storage::disk('public')->exists($targetUser->avatar)) {
                 Storage::disk('public')->delete($targetUser->avatar);
             }
 
-            // Ưu tiên lấy company_id mới (nếu có trong data), nếu không lấy cái cũ
             $companyId = $data['company_id'] ?? $targetUser->company_id;
 
             if ($companyId) {
@@ -193,13 +203,36 @@ class UserController extends Controller
             $data['avatar'] = $path;
         }
 
-        // 5. Update 1 lần duy nhất
+        // Cập nhật thông tin User
         $targetUser->update($data);
+
+        // --- B. XỬ LÝ UPLOAD THÊM FILE ---
+        if ($request->hasFile('documents')) {
+            foreach ($request->file('documents') as $file) {
+                $docName = time() . '_' . $file->getClientOriginalName();
+                
+                $cId = $targetUser->company_id;
+                if ($cId) {
+                    $docFolder = "companies/{$cId}/users/{$targetUser->id}/documents";
+                } else {
+                    $docFolder = "users/{$targetUser->id}/documents";
+                }
+
+                $docPath = $file->storeAs($docFolder, $docName, 'public');
+
+                UserFile::create([
+                    'user_id' => $targetUser->id,
+                    'file_path' => $docPath,
+                    'original_name' => $file->getClientOriginalName(),
+                    'type' => 'document'
+                ]);
+            }
+        }
 
         return redirect()->route('users.index')->with('success', 'Cập nhật thành công.');
     }
 
-    // 6. XÓA (Có xóa file ảnh)
+    // 6. XÓA USER
     public function destroy(string $id)
     {
         $targetUser = User::findOrFail($id);
@@ -213,19 +246,79 @@ class UserController extends Controller
             return back()->with('error', 'Bạn không thể tự xóa tài khoản của chính mình.');
         }
 
-        // Xóa ảnh đại diện khỏi ổ cứng trước khi xóa user (để tiết kiệm dung lượng)
+        // Xóa folder chứa ảnh và tài liệu
         if ($targetUser->company_id) {
-            // Nếu là nhân viên công ty -> Xóa cả folder riêng của họ trong công ty
             Storage::disk('public')->deleteDirectory("companies/{$targetUser->company_id}/users/{$targetUser->id}");
         } else {
-            // Nếu là Admin Tổng -> Chỉ xóa file ảnh (vì folder 'avatars' dùng chung, không xóa folder được)
-            if ($targetUser->avatar) {
-                Storage::disk('public')->delete($targetUser->avatar);
-            }
+            // Admin tổng: Xóa ảnh avatar (nếu có) và xóa folder documents riêng
+            if ($targetUser->avatar) Storage::disk('public')->delete($targetUser->avatar);
+            Storage::disk('public')->deleteDirectory("users/{$targetUser->id}");
         }
 
         $targetUser->delete();
 
         return redirect()->route('users.index')->with('success', 'Đã xóa nhân viên thành công.');
+    }
+
+    // 7. [MỚI] HÀM XÓA FILE ĐÍNH KÈM
+    public function deleteFile($fileId)
+    {
+        $currentUser = Auth::user();
+
+        // Tìm file và thông tin người sở hữu
+        $file = UserFile::with('user')->findOrFail($fileId);
+
+        // --- PHÂN QUYỀN ---
+
+        // 1. Nếu là Admin Tổng (Role 0)
+        if ($currentUser->role == 0) {
+            // ĐỂ TRỐNG: Admin có quyền tối cao -> Cho đi thẳng xuống dưới để xóa
+        } 
+        
+        // 2. Nếu là Quản lý công ty (Role 1)
+        elseif ($currentUser->role == 1) {
+            // Nếu file này của nhân viên công ty khác -> CHẶN
+            if ($file->user && $file->user->company_id != $currentUser->company_id) {
+                abort(403, 'Quản lý không được xóa file của công ty khác.');
+            }
+        } 
+        
+        // 3. Nếu là Nhân viên (Role 2)
+        else {
+            // Nếu không phải file của chính mình -> CHẶN
+            if ($file->user_id != $currentUser->id) {
+                abort(403, 'Bạn không được phép xóa file của người khác.');
+            }
+        }
+
+        // --- THỰC HIỆN XÓA ---
+
+        // Xóa file trong ổ cứng
+        if (Storage::disk('public')->exists($file->file_path)) {
+            Storage::disk('public')->delete($file->file_path);
+        }
+
+        // Xóa thông tin trong database
+        $file->delete();
+
+        return back()->with('success', 'Đã xóa tài liệu thành công.');
+    }
+    public function userFiles($id)
+    {
+        $currentUser = Auth::user();
+        $targetUser = User::find($id);
+
+        if (!$targetUser) {
+            return back()->with('error', 'Nhân viên không tồn tại.');
+        }
+
+        // 1. Check quyền: Quản lý chỉ được xem file của nhân viên công ty mình
+        if ($currentUser->role == 1 && $targetUser->company_id != $currentUser->company_id) {
+            abort(403, 'Bạn không có quyền xem hồ sơ của nhân viên công ty khác.');
+        }
+
+        $files = $targetUser->files()->orderBy('created_at', 'desc')->paginate(50);
+
+        return view('profile.files', compact('files', 'targetUser'));
     }
 }

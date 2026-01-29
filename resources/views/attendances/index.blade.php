@@ -20,12 +20,15 @@
     {{-- 1. Ngày --}}
     <div class="col-md-3">
         <label class="fw-bold small text-muted">NGÀY</label>
-        <input type="date" name="date" class="form-control" value="{{ $date }}">
+        {{-- Thêm thuộc tính min vào đây --}}
+        <input type="date" name="date" class="form-control" 
+               value="{{ $date }}" 
+               min="{{ date('Y-m-d') }}">
     </div>
 
     {{-- 2. Công ty --}}
     @if(Auth::user()->role == 0)
-        <div class="col-md-3"> {{-- Giảm độ rộng để nhường chỗ cho ô Trạng thái --}}
+        <div class="col-md-3"> 
             <label class="fw-bold small text-muted">CÔNG TY</label>
             <select name="company_id" class="form-select" onchange="this.form.submit()">
                 <option value="">-- Chọn công ty --</option>
@@ -67,7 +70,10 @@
             @if(isset($users) && count($users) > 0)
             <form action="{{ route('attendance.store') }}" method="POST">
                 @csrf
-                <input type="hidden" name="date" value="{{ $date }}">
+                <input type="date" name="date" class="form-control" 
+                    value="{{ date('Y-m-d') }}" 
+                    min="{{ date('Y-m-d') }}" 
+                    required>
                 <input type="hidden" name="company_id" value="{{ $company_id }}">
                 <input type="hidden" name="page" value="{{ request('page', 1) }}">
 

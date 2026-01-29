@@ -17,9 +17,9 @@ class CompanyController extends Controller
             return $query->where('name', 'LIKE', "%{$search}%");
         })
         ->withCount('users') 
-        ->orderBy('id', 'asc') // Sắp xếp theo bảng chữ cái sau khi đã ưu tiên
+        ->orderBy('id', 'asc')
         ->paginate(10);
-        // dd($companies);
+        
     return view('companies.index', compact('companies', 'search'));
 }
     // 1. Hiển thị form Thêm mới

@@ -3,25 +3,23 @@
 namespace App\Jobs;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueue; // Có thể bỏ dòng này nếu dùng dispatchSync, nhưng cứ để cũng ko sao
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Attendance;
 use Illuminate\Support\Facades\Cache;
+use Carbon\Carbon;
 
-class StoreAttendanceJob implements ShouldQueue
+class StoreAttendanceJob
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected $date;
     protected $company_id;
-    protected $user_ids;
-    protected $present_ids;
+    protected $user_ids;     
+    protected $present_ids;  
 
-    /**
-     * Nhận dữ liệu đầu vào từ Controller
-     */
     public function __construct($date, $company_id, $user_ids, $present_ids)
     {
         $this->date = $date;
@@ -30,15 +28,25 @@ class StoreAttendanceJob implements ShouldQueue
         $this->present_ids = $present_ids;
     }
 
-    /**
-     * Thực thi logic chấm công (Nặng) ở đây
-     */
-    public function handle(): void
+    public function handle()
     {
-        // 1. Chạy vòng lặp lưu DB
+        // Kiểm tra dữ liệu
+        if (empty($this->user_ids)) return;
+
+        $today = Carbon::now()->format('Y-m-d');
+        // Nếu chấm cho hôm nay thì lấy giờ hiện tại, quá khứ thì 8h sáng
+        $currentTime = ($this->date == $today) ? Carbon::now() : '08:00:00';
+
         foreach ($this->user_ids as $user_id) {
-            // Kiểm tra xem user có được tick chọn không
-            $status = isset($this->present_ids[$user_id]) ? 1 : 0;
+            
+            // Kiểm tra có mặt hay không
+            $isChecked = false;
+            if (is_array($this->present_ids) && isset($this->present_ids[$user_id])) {
+                $isChecked = true;
+            }
+
+            $status = $isChecked ? 1 : 0;
+            $checkInTime = ($status == 1) ? $currentTime : null;
 
             Attendance::updateOrCreate(
                 [
@@ -47,20 +55,16 @@ class StoreAttendanceJob implements ShouldQueue
                 ], 
                 [
                     'status' => $status,
-                    'company_id' => $this->company_id 
+                    'company_id' => $this->company_id,
+                    
                 ]
             );
         }
 
-        // 2. Xóa Cache sau khi xử lý xong
-        $this->clearDashboardCache($this->company_id);
-    }
-
-    private function clearDashboardCache($companyId)
-    {
+        // Xóa Cache
         Cache::forget("dashboard_stats_role_0_comp_"); 
-        if ($companyId) {
-            Cache::forget("dashboard_stats_role_1_comp_{$companyId}");
+        if ($this->company_id) {
+            Cache::forget("dashboard_stats_role_1_comp_{$this->company_id}");
         }
     }
 }
