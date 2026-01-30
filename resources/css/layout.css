@@ -1,0 +1,90 @@
+/* =========================================================
+   STYLE TÙY CHỈNH CHO THANH THÔNG BÁO (RỘNG & TO)
+   ========================================================= */
+
+/* 1. KHUNG CHỨA DANH SÁCH THÔNG BÁO */
+.notification-dropdown {
+    width: 500px;             /* 👈 QUAN TRỌNG: Tăng lên 500px cho rất rộng */
+    max-height: 80vh;         /* Chiều cao tối đa 80% màn hình */
+    overflow-y: auto;         /* Cho phép cuộn dọc nếu danh sách dài */
+    padding: 0;               /* Xóa khoảng trắng thừa */
+    border: none;             /* Xóa viền mặc định xấu xí */
+    border-radius: 12px;      /* Bo tròn góc */
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); /* Đổ bóng đậm cho nổi bật */
+    margin-top: 15px;         /* Cách cái chuông ra một chút */
+}
+
+/* 2. TÙY CHỈNH THANH CUỘN (SCROLLBAR) */
+.notification-dropdown::-webkit-scrollbar {
+    width: 10px;              /* Thanh cuộn to hơn chút cho dễ kéo */
+}
+.notification-dropdown::-webkit-scrollbar-track {
+    background: #f8fafc; 
+}
+.notification-dropdown::-webkit-scrollbar-thumb {
+    background: #cbd5e1;      /* Màu xám nhạt */
+    border-radius: 5px;
+}
+.notification-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;      /* Đậm hơn khi di chuột vào */
+}
+
+/* 3. TỪNG MỤC THÔNG BÁO */
+.notification-item {
+    padding: 15px 20px !important; /* 👈 Tăng khoảng cách lề (padding) cho thoáng */
+    border-bottom: 1px solid #f1f5f9;
+    white-space: normal;      /* 👈 QUAN TRỌNG: Cho phép chữ xuống dòng, không bị cắt */
+    display: block;
+    transition: background 0.2s;
+}
+
+.notification-item:hover {
+    background-color: #f1f5f9; /* Màu nền khi di chuột vào */
+}
+
+/* Màu nền cho tin CHƯA ĐỌC (Xanh rất nhạt) */
+.notification-item.bg-light {
+    background-color: #eef2ff !important; 
+}
+
+/* Màu nền cho tin ĐÃ ĐỌC (Trắng) */
+.notification-item.bg-white {
+    background-color: #ffffff !important;
+}
+
+/* 4. CHỈNH CỠ CHỮ TO RÕ */
+
+/* Tiêu đề thông báo */
+.notification-dropdown strong.text-dark {
+    font-size: 16px;          /* Cỡ chữ to */
+    font-weight: 700;
+    color: #1e293b !important;
+    display: block;
+    margin-bottom: 4px;
+}
+
+/* Thời gian */
+.notification-dropdown small.text-muted {
+    font-size: 13px;
+    color: #64748b !important;
+}
+
+/* Nội dung chi tiết */
+.notification-dropdown p.text-secondary {
+    font-size: 15px;          /* Cỡ chữ nội dung dễ đọc */
+    color: #334155 !important;
+    line-height: 1.5;         /* Dãn dòng thoáng */
+    margin-top: 5px;
+}
+
+/* 5. RESPONSIVE (MOBILE) */
+/* Trên điện thoại thì tự thu nhỏ lại để không bị tràn màn hình */
+@media (max-width: 576px) {
+    .notification-dropdown {
+        width: 94vw;          /* Chiếm 94% chiều ngang màn hình đt */
+        position: fixed;      
+        top: 60px;
+        left: 3%;
+        right: 3%;
+    }
+}

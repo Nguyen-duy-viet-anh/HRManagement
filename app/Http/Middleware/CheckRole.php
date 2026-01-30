@@ -25,8 +25,7 @@ class CheckRole
         // 2. Lấy role hiện tại của user
         $userRole = (int) Auth::user()->role;
 
-        // 3. Xử lý danh sách quyền được phép
-        // Mục đích: Xử lý trường hợp trong web.php viết "role:0, 1"
+        
         $allowedRoles = [];
         foreach ($roles as $role) {
             $allowedRoles[] = (int) trim($role); 

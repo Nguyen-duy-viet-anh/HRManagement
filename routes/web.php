@@ -20,6 +20,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
     Route::delete('/user-files/{id}', [UserController::class, 'deleteFile'])->name('user_files.destroy');
     Route::get('/notification/read/{id}', [NotificationController::class, 'read'])->name('notification.read');
+    Route::get('/notification/read-all', [NotificationController::class, 'markAsRead'])->name('notifications.markAllRead');
 
 
     Route::middleware(['role:0'])->group(function() {

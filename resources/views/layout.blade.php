@@ -112,7 +112,7 @@
                                 <li class="d-flex justify-content-between align-items-center px-3 py-2 bg-white border-bottom sticky-top">
                                     <h6 class="mb-0 fw-bold text-dark">Thông báo của bạn</h6>
                                     @if(Auth::user()->unreadNotifications->count() > 0)
-                                        <a href="{{ route('notification.read') }}" class="text-decoration-none small fw-bold text-primary">
+                                        <a href="{{ route('notifications.markAllRead') }}" class="text-decoration-none small fw-bold text-primary">
                                             Đánh dấu đã đọc hết
                                         </a>
                                     @endif
