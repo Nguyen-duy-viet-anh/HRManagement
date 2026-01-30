@@ -8,7 +8,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     
-    {{-- Đảm bảo file public/css/layout.css đã có code CSS tôi đưa ở bước trước --}}
     <link href="{{ asset('./resources/css/layout.css') }}" rel="stylesheet">
 </head>
 <body>
@@ -30,7 +29,7 @@
                         <a class="nav-link {{ request()->is('dashboard') ? 'active' : '' }}" 
                         href="{{ route('dashboard') }}">Tổng quan</a>
                     </li>
-
+                    
                     @auth
                         {{-- MENU CHO ADMIN --}}
                         @if(Auth::user()->role == 0)
@@ -64,6 +63,12 @@
                                 <a class="nav-link {{ request()->is('salary*') ? 'active' : '' }}" 
                                 href="{{ route('salary.index') }}">Bảng lương</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('lunch.stats') ? 'active fw-bold text-primary' : '' }}" 
+                                href="{{ route('lunch.stats') }}">
+                                    Báo cáo & Thống kê
+                                </a>
+                            </li>
                             
                             {{-- NÚT GỬI THÔNG BÁO --}}
                             <li class="nav-item">
@@ -88,6 +93,11 @@
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->is('colleagues*') ? 'active' : '' }}" 
                                 href="{{ route('colleagues.index') }}">Đồng nghiệp</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('lunch.*') ? 'active' : '' }}" href="{{ route('lunch.index') }}">
+                                    <span class="ms-2">Phiếu ăn trưa</span>
+                                </a>
                             </li>
                         @endif
 

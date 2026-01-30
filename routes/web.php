@@ -8,6 +8,7 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\ProfileController; 
 use App\Http\Controllers\NotificationController; // Đã import gọn lại
+use App\Http\Controllers\LunchController;
 
 // --- ROUTE KHÔNG CẦN ĐĂNG NHẬP ---
 Route::get('/', [AuthController::class, 'showLogin'])->name('login');
@@ -53,6 +54,9 @@ Route::middleware('auth')->group(function () {
         // Lương
         Route::get('/salary', [SalaryController::class, 'index'])->name('salary.index');
         Route::get('/salary/export', [SalaryController::class, 'export'])->name('salary.export');
+
+        // Thống kê đặt cơm trưa
+        Route::get('/lunch/stats', [LunchController::class, 'stats'])->name('lunch.stats');
     });
 
     // ==========================================================
@@ -67,6 +71,12 @@ Route::middleware('auth')->group(function () {
         // Chấm công cá nhân
         Route::post('/self-check-in', [AttendanceController::class, 'selfCheckIn'])->name('attendance.self');
         Route::get('/my-attendance-history', [AttendanceController::class, 'history'])->name('attendance.history');
+
+        // ĐẶT CƠM TRƯA
+        Route::get('/lunch', [LunchController::class, 'index'])->name('lunch.index');
+        Route::post('/lunch/order', [LunchController::class, 'order'])->name('lunch.order');
+        Route::get('/lunch/return', [LunchController::class, 'vnpayReturn'])->name('lunch.return');
+        Route::get('/lunch/repay/{id}', [LunchController::class, 'repay'])->name('lunch.repay');
     });
 
 });
