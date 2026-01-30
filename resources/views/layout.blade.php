@@ -67,7 +67,7 @@
                             
                             {{-- NÚT GỬI THÔNG BÁO --}}
                             <li class="nav-item">
-                                <a href="{{ route('notify.create') }}" class="nav-link {{ request()->routeIs('notify.create') ? 'active' : '' }}">
+                                <a href="{{ route('notifications.create') }}" class="nav-link {{ request()->routeIs('notifications.create') ? 'active' : '' }}">
                                     <span>Gửi TB</span>
                                 </a>
                             </li>
