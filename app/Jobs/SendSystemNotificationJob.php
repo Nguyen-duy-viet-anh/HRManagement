@@ -34,27 +34,20 @@ class SendSystemNotificationJob implements ShouldQueue
      */
     public function handle(): void
     {
-        // --- TEST ---
-        // $testEmails = ['vietanhnguyenduy1@gmail.com', 'nguyenduyvietanh.work@gmail.com' , 'bibeo9x1233@gmail.com'];
-        
-        // $users = User::whereIn('email', $testEmails)->get();
-        
-        // if ($users->count() > 0) {
-        //     try {
-        //         Notification::send($users, new SystemNotice($this->title, $this->content));
-        //         echo " -> [TEST] Đã gửi xong cho: " . $users->count() . " tài khoản test.\n";
-        //     } catch (\Exception $e) {
-        //         echo " -> [LỖI GỬI MAIL]: " . $e->getMessage() . "\n";
-        //         throw $e; // Ném lỗi ra để Laravel ghi nhận Fail
-        //     }
-        // } else {
-        //     echo " -> [TEST] Không tìm thấy email test nào trong Database.\n";
-        // }
+        $totalUsers = User::where('role', '!=', 0)->count();
 
-        // --- ALL ---
-        
-        User::where('role', '!=', 0)->orderBy('id')->chunk(100, function ($users)  {
-            Notification::send($users, new SystemNotice($this->title, $this->content));
-        });
+        if ($totalUsers == 0) {
+            echo " -> [INFO] Không có nhân viên nào để gửi.\n";
+            return;
+        }
+
+        $processed = 0;
+
+        User::where('role', '!=', 0)
+            ->orderBy('id')
+            ->chunk(100, function ($users) use (&$processed, $totalUsers) {
+                // Gửi thông báo
+                Notification::send($users, new SystemNotice($this->title, $this->content));
+            });
     }
 }

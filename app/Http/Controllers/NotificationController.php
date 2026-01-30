@@ -47,9 +47,4 @@ class NotificationController extends Controller
         return back();
     }
 
-    // Notification history removed
-
-
-// Notification history detail removed
-
 }

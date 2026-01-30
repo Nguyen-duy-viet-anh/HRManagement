@@ -25,8 +25,6 @@ class CompanyController extends Controller
     // 1. Hiển thị form Thêm mới
     public function create()
     {
-        // Thay đổi: Trỏ về view 'companies.form'
-        // Không truyền biến $company -> View sẽ tự hiểu là đang THÊM MỚI
         return view('companies.form');
     }
 
@@ -84,9 +82,6 @@ class CompanyController extends Controller
         $company = Company::findOrFail($id);
         $company->update($request->all());
 
-        // Điều hướng thông minh:
-        // - Admin (Role 0): Về danh sách để quản lý tiếp
-        // - Quản lý (Role 1): Ở lại form sửa để xem lại thông tin (vì họ ko vào được trang index)
         if ($user->role == 0) {
             return redirect()->route('companies.index')->with('success', 'Cập nhật thành công');
         } else {
