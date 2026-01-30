@@ -4,37 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý Nhân sự</title>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <style>
-        body {
-            background-color: #f5f7f9;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
-        .navbar {
-            background-color: #ffffff;
-            border-bottom: 1px solid #e1e4e8;
-        }
-        .nav-link {
-            color: #6c757d !important;
-            font-weight: 500;
-            padding: 0.5rem 1rem;
-            transition: color 0.2s;
-        }
-        .nav-link:hover, .nav-link.active {
-            color: #0d6efd !important;
-        }
-        .dropdown-menu {
-            border: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-    </style>
+    
+    {{-- Đảm bảo file public/css/layout.css đã có code CSS tôi đưa ở bước trước --}}
+    <link href="{{ asset('./resources/css/layout.css') }}" rel="stylesheet">
 </head>
 <body>
-    {{-- Navbar trắng, sạch sẽ --}}
+    {{-- Navbar --}}
     <nav class="navbar navbar-expand-lg sticky-top mb-4">
         <div class="container">
-            {{-- Logo đơn giản --}}
+            {{-- Logo --}}
             <a class="navbar-brand fw-bold text-dark d-flex align-items-center" href="{{ route('dashboard') }}">
                 <i class="bi bi-buildings-fill text-primary me-2"></i> HR SYSTEM
             </a>
@@ -51,6 +32,7 @@
                     </li>
 
                     @auth
+                        {{-- MENU CHO ADMIN --}}
                         @if(Auth::user()->role == 0)
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->is('companies*') ? 'active' : '' }}" 
@@ -58,6 +40,7 @@
                             </li>
                         @endif
 
+                        {{-- MENU CHO QUẢN LÝ --}}
                         @if(Auth::user()->role == 1)
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->is('companies/*/edit') ? 'active' : '' }}" 
@@ -67,6 +50,7 @@
                             </li>
                         @endif
 
+                        {{-- MENU CHUNG CHO ADMIN & QUẢN LÝ --}}
                         @if(Auth::user()->role == 0 || Auth::user()->role == 1)
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->is('users*') ? 'active' : '' }}" 
@@ -80,9 +64,16 @@
                                 <a class="nav-link {{ request()->is('salary*') ? 'active' : '' }}" 
                                 href="{{ route('salary.index') }}">Bảng lương</a>
                             </li>
-                            {{-- ĐÃ XÓA LINK GỬI THÔNG BÁO --}}
+                            
+                            {{-- NÚT GỬI THÔNG BÁO --}}
+                            <li class="nav-item">
+                                <a href="{{ route('notify.create') }}" class="nav-link {{ request()->routeIs('notify.create') ? 'active' : '' }}">
+                                    <span>Gửi TB</span>
+                                </a>
+                            </li>
                         @endif
 
+                        {{-- MENU CHO NHÂN VIÊN --}}
                         @if(Auth::user()->role == 2)
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->is('my-profile*') ? 'active' : '' }}" 
@@ -103,10 +94,79 @@
                     @endauth
                 </ul>
 
+                {{-- PHẦN BÊN PHẢI NAVBAR --}}
                 <ul class="navbar-nav ms-auto align-items-center">
                     @auth
-                        {{-- ĐÃ XÓA CÁI CHUÔNG Ở ĐÂY --}}
+                        @if(Auth::user()->role != 0)
+                        <li class="nav-item dropdown me-3 width: 1000px;">
+                            <a class="nav-link position-relative" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-bell-fill fs-5 text-secondary"></i>
+                                @if(Auth::user()->unreadNotifications->count() > 0)
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light">
+                                        {{ Auth::user()->unreadNotifications->count() }}
+                                    </span>
+                                @endif
+                            </a>
 
+                            <ul class="dropdown-menu dropdown-menu-end notification-dropdown">
+                                <li class="d-flex justify-content-between align-items-center px-3 py-2 bg-white border-bottom sticky-top">
+                                    <h6 class="mb-0 fw-bold text-dark">Thông báo của bạn</h6>
+                                    @if(Auth::user()->unreadNotifications->count() > 0)
+                                        <a href="{{ route('notify.read') }}" class="text-decoration-none small fw-bold text-primary">
+                                            Đánh dấu đã đọc hết
+                                        </a>
+                                    @endif
+                                </li>
+
+                                <div style="max-height: 400px; overflow-y: auto;">
+                                    @forelse(Auth::user()->notifications as $notification)
+                                        <li>
+                                            <a class="dropdown-item p-3 notification-item border-bottom {{ $notification->read_at ? 'bg-white' : 'bg-light' }}" href="#">
+                                                <div class="d-flex">
+                                                    <div class="flex-shrink-0 me-3">
+                                                        <div class="rounded-circle d-flex align-items-center justify-content-center" 
+                                                             style="width: 38px; height: 38px; background-color: {{ $notification->read_at ? '#e9ecef' : '#cfe2ff' }}; color: {{ $notification->read_at ? '#6c757d' : '#0d6efd' }};">
+                                                            <i class="bi bi-envelope-fill"></i>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="flex-grow-1">
+                                                    
+                                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                                            <strong class="text-dark" style="font-size: 0.95rem;">
+                                                                {{ $notification->data['title'] ?? 'Thông báo hệ thống' }}
+                                                            </strong>
+                                                            <small class="text-muted ms-2 text-nowrap" style="font-size: 0.75rem;">
+                                                                {{ $notification->created_at->diffForHumans() }}
+                                                            </small>
+                                                        </div>
+                                                        
+                                                     
+                                                        <p class="mb-0 text-secondary text-wrap" style="font-size: 0.9rem; line-height: 1.5;">
+                                                            {{ $notification->data['content'] ?? '' }}
+                                                        </p>
+                                                    </div>
+
+                                                    @if(!$notification->read_at)
+                                                        <div class="ms-2 pt-1">
+                                                            <span class="badge bg-primary rounded-circle p-1"></span>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </a>
+                                        </li>
+                                    @empty
+                                        <li class="text-center py-5">
+                                            <i class="bi bi-inbox text-muted fs-1 mb-3 d-block"></i>
+                                            <span class="text-muted">Không có thông báo nào</span>
+                                        </li>
+                                    @endforelse
+                                </div>
+
+                                
+                            </ul>
+                        </li>
+                        @endif
                         @php
                             $user = Auth::user();
                             $avatar = $user->avatar;
@@ -120,7 +180,6 @@
                             }
                         @endphp
 
-                        {{-- User Dropdown --}}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle d-flex align-items-center pe-0" href="#" role="button" data-bs-toggle="dropdown">
                                 <div class="text-end me-2 d-none d-lg-block">
@@ -144,14 +203,8 @@
                                 </li>
                             </ul>
                         </li>
-                    @else
-                        {{-- Nếu chưa đăng nhập --}}
-                        <li class="nav-item">
-                            <a href="{{ route('login') }}" class="btn btn-primary btn-sm px-4 rounded-pill fw-bold">Đăng nhập</a>
-                        </li>
                     @endauth
                 </ul>
-
             </div>
         </div>
     </nav>
