@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
 use App\Jobs\StoreAttendanceJob;
+use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
@@ -115,27 +116,35 @@ class AttendanceController extends Controller
     {
         $user = Auth::user(); 
         $date = date('Y-m-d');
+        
+        // Tìm bản ghi chấm công bất kỳ của user trong ngày
+        $attendance = Attendance::where('user_id', $user->id)
+            ->where('date', $date)
+            ->first();
 
-        $check = Attendance::where('user_id', $user->id)
-                           ->where('date', $date)
-                           ->where('status', 1)
-                           ->exists();
-
-        if ($check) {
+        // Nếu đã có bản ghi và đã chấm công "có mặt" thì báo lại
+        if ($attendance && $attendance->status == 1) {
             return back()->with('info', 'Bạn đã chấm công hôm nay rồi.');
         }
 
-        Attendance::create([
-            'user_id' => $user->id,
-            'date'    => $date,
-            'company_id' => $user->company_id,
-            'status'     => 1,
-            'check_in_time' => \Carbon\Carbon::now(),
-        ]);
+        // Dùng updateOrCreate:
+        // - Nếu chưa có record -> tạo mới với status = 1
+        // - Nếu có record (chắc chắn là status = 0) -> update thành status = 1
+        Attendance::updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'date'    => $date,
+            ],
+            [
+                'company_id' => $user->company_id,
+                'status'     => 1,
+                'check_in_time' => Carbon::now()->toTimeString(),
+            ]
+        );
 
         $this->clearDashboardCache($user->company_id);
 
-        return back()->with('success', 'Check-in thành công!');
+        return back()->with('success', 'Đã chấm công thành công.');
     }
 
     // 4. LỊCH SỬ CÁ NHÂN (NV Tự xem)

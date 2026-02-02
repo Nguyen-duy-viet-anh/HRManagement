@@ -33,6 +33,11 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/admin/notifications/create', [NotificationController::class, 'create'])->name('notifications.create');
         Route::post('/admin/notifications/send', [NotificationController::class, 'send'])->name('notifications.send');
+
+        // Cấu hình phiếu ăn
+        Route::get('/lunch/config', [LunchController::class, 'config'])->name('lunch.config');
+        Route::post('/lunch/config', [LunchController::class, 'storePrice'])->name('lunch.store_price');
+        Route::delete('/lunch/config/{id}', [LunchController::class, 'deletePrice'])->name('lunch.delete_price');
     });
     // NHÓM 2: QUẢN LÝ & ADMIN (Role 0 & 1)
     Route::middleware(['role:0,1'])->group(function() {
@@ -71,12 +76,11 @@ Route::middleware('auth')->group(function () {
         // Chấm công cá nhân
         Route::post('/self-check-in', [AttendanceController::class, 'selfCheckIn'])->name('attendance.self');
         Route::get('/my-attendance-history', [AttendanceController::class, 'history'])->name('attendance.history');
-
-        // ĐẶT CƠM TRƯA
-        Route::get('/lunch', [LunchController::class, 'index'])->name('lunch.index');
-        Route::post('/lunch/order', [LunchController::class, 'order'])->name('lunch.order');
-        Route::get('/lunch/return', [LunchController::class, 'vnpayReturn'])->name('lunch.return');
-        Route::get('/lunch/repay/{id}', [LunchController::class, 'repay'])->name('lunch.repay');
     });
 
+    // --- ROUTE CHUNG CHO CƠM TRƯA (Admin cũng có thể vào mua/xem) ---
+    Route::get('/lunch', [LunchController::class, 'index'])->name('lunch.index');
+    Route::post('/lunch/order', [LunchController::class, 'order'])->name('lunch.order');
+    Route::get('/lunch/return', [LunchController::class, 'vnpayReturn'])->name('lunch.return');
+    Route::get('/lunch/repay/{id}', [LunchController::class, 'repay'])->name('lunch.repay');
 });

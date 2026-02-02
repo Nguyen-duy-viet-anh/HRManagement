@@ -67,8 +67,8 @@
                 <thead class="table-light">
                     <tr>
                         <th class="text-center">#</th>
-                        <th>Thời gian</th>
                         <th>Nhân viên</th>
+                        <th>Thời gian</th>
                         <th>Chi tiết</th>
                         <th class="text-end">Số tiền</th>
                     </tr>
@@ -78,12 +78,12 @@
                     <tr>
                         <td class="text-center">{{ $key + 1 }}</td>
                         <td>
-                            {{ $order->created_at->format('H:i:s') }} 
-                            <span class="text-muted small">({{ $order->created_at->format('d/m') }})</span>
-                        </td>
-                        <td>
                             <div class="fw-bold text-primary">{{ $order->user->name ?? 'User đã xóa' }}</div>
                             <small class="text-muted">{{ $order->user->email ?? '' }}</small>
+                        </td>
+                        <td>
+                            {{ $order->created_at->format('H:i:s') }} 
+                            <span class="text-muted small">({{ $order->created_at->format('d/m') }})</span>
                         </td>
                         <td>
                             <small>Mã GD: {{ $order->transaction_code }}</small>
@@ -102,7 +102,7 @@
                 </tbody>
             </table>
         </div>
-        
+    
         <div class="p-3">
             {{ $orders->appends(['day' => $day, 'month' => $month, 'year' => $year])->links() }}
         </div>

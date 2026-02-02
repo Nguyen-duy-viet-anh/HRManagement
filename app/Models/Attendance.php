@@ -4,11 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Concerns\HasUuids; // 1. IMPORT THƯ VIỆN NÀY
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class Attendance extends Model
 {
-    use HasFactory, HasUuids; // 2. KHAI BÁO SỬ DỤNG Ở ĐÂY
+    use HasFactory, HasUuids;
 
     protected $fillable = [
         'user_id',

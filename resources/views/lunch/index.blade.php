@@ -1,14 +1,14 @@
-@extends('layout') {{-- Hoặc extends layout chính của bạn --}}
+@extends('layout') 
 
 @section('content')
 <div class="container mt-5">
     <h2>Mua Phiếu Ăn Trưa</h2>
     
     @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
+        <div class="alert-success">{{ session('success') }}</div>
     @endif
     @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
+        <div class="alert-danger">{{ session('error') }}</div>
     @endif
     <div class="row">
         <div class="col-md-6">
@@ -16,20 +16,21 @@
                 <form action="{{ route('lunch.order') }}" method="POST">
                     @csrf
                     <label class="form-label fw-bold">Chọn mệnh giá:</label>
-                    <div class="d-flex gap-3 mb-3">
-                        <div>
-                            <input type="radio" class="btn-check" name="price_level" id="p25" value="25000" checked>
-                            <label class="btn btn-outline-primary" for="p25">25.000đ</label>
-                        </div>
-                        <div>
-                            <input type="radio" class="btn-check" name="price_level" id="p30" value="30000">
-                            <label class="btn btn-outline-success" for="p30">30.000đ</label>
-                        </div>
-                        <div>
-                            <input type="radio" class="btn-check" name="price_level" id="p35" value="35000">
-                            <label class="btn btn-outline-danger" for="p35">35.000đ</label>
-                        </div>
+                    <div class="d-flex gap-3 mb-3 flex-wrap">
+                        @foreach($prices as $p)
+                            <div>
+                                <input type="radio" class="btn-check" name="price_level" id="p{{ $p->id }}" value="{{ $p->price }}" {{ $loop->first ? 'checked' : '' }}>
+                                <label class="btn btn-outline-primary" for="p{{ $p->id }}">{{ number_format($p->price) }}đ</label>
+                            </div>
+                        @endforeach
                     </div>
+                    
+                    @if(Auth::user()->role == 0)
+                        <div class="mb-3 text-end">
+                            <a href="{{ route('lunch.config') }}" class="text-decoration-none small"><i class="bi bi-gear"></i> Quản lý mệnh giá</a>
+                        </div>
+                    @endif
+
                     <button type="submit" class="btn btn-dark w-100">Thanh toán VNPay</button>
                 </form>
             </div>

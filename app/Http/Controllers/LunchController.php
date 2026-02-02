@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\LunchOrder;
+use App\Models\LunchPrice;
 use Illuminate\Support\Facades\Auth;
 
 class LunchController extends Controller
@@ -13,15 +14,17 @@ class LunchController extends Controller
     {
         $myOrders = LunchOrder::where('user_id', Auth::id())
                               ->orderBy('created_at', 'desc')
-                              ->paginate(5);
-        return view('lunch.index', compact('myOrders'));
+                              ->paginate(20);
+        
+        $prices = LunchPrice::orderBy('price', 'asc')->get();
+        return view('lunch.index', compact('myOrders', 'prices'));
     }
 
     // 2. Tạo đơn hàng MỚI
     public function order(Request $request)
     {
         $request->validate([
-            'price_level' => 'required|integer|in:25000,30000,35000',
+            'price_level' => 'required|integer|exists:lunch_prices,price',
         ]);
 
         $order = LunchOrder::create([
@@ -31,11 +34,9 @@ class LunchController extends Controller
             'status' => 'pending'
         ]);
 
-        // GỌI HÀM CHUNG ĐỂ TẠO URL (Đã fix lỗi ổn định)
         return $this->createVnpayUrl($order, $request->payment_method);
     }
 
-    // 3. Thanh toán lại đơn cũ (REPAY)
     public function repay($id)
     {
         $order = LunchOrder::where('id', $id)->where('user_id', Auth::id())->first();
@@ -44,18 +45,14 @@ class LunchController extends Controller
             return redirect()->route('lunch.index')->with('error', 'Đơn hàng không hợp lệ.');
         }
 
-        // GỌI HÀM CHUNG
         return $this->createVnpayUrl($order, 'VNBANK'); 
     }
 
-    // 4. Xử lý kết quả trả về từ VNPay
     public function vnpayReturn(Request $request)
     {
-        // 1. Lấy Config (Nên gán cứng nếu .env hay lỗi)
         $vnp_HashSecret = env('VNP_HASH_SECRET'); 
-        // $vnp_HashSecret = 'TKW7SK1HSP0VKDRM0YOUQVWCW0DTTFL8'; // Bỏ comment dòng này nếu muốn chắc chắn
+        // $vnp_HashSecret = 'TKW7SK1HSP0VKDRM0YOUQVWCW0DTTFL8';
 
-        // 2. Lấy dữ liệu VNPay trả về
         $inputData = array();
         foreach ($request->all() as $key => $value) {
             // Chỉ lấy các tham số bắt đầu bằng "vnp_"
@@ -68,10 +65,10 @@ class LunchController extends Controller
         $vnp_SecureHash = $inputData['vnp_SecureHash'];
         unset($inputData['vnp_SecureHash']);
         
-        // 4. Sắp xếp dữ liệu theo A-Z (Bắt buộc)
+        // 4. Sắp xếp
         ksort($inputData);
         
-        // 5. Tạo chuỗi hash (Cách chuẩn của VNPay)
+        // 5. Tạo chuỗi hash 
         $i = 0;
         $hashData = "";
         foreach ($inputData as $key => $value) {
@@ -88,9 +85,6 @@ class LunchController extends Controller
         
         // 7. KIỂM TRA & DEBUG
         if ($secureHash == $vnp_SecureHash) {
-            // --- Chữ ký đúng ---
-            
-            // Tách ID đơn hàng (Ví dụ: "5_2023..." -> Lấy "5")
             $parts = explode('_', $request->vnp_TxnRef);
             $orderId = $parts[0];
             $order = LunchOrder::find($orderId);
@@ -101,7 +95,7 @@ class LunchController extends Controller
                         'status' => 'paid', 
                         'transaction_code' => $request->vnp_TransactionNo
                     ]);
-                    return redirect()->route('lunch.index');
+                    return redirect()->route('lunch.index')->with('success', 'Thanh toán thành công.');
                 } else {
                     $order->update(['status' => 'failed']);
                     return redirect()->route('lunch.index')->with('error', 'Giao dịch bị lỗi hoặc bị hủy.');
@@ -111,7 +105,6 @@ class LunchController extends Controller
             }
 
         } else {
-            // --- Chữ ký sai -> IN RA MÀN HÌNH ĐỂ XEM LỖI ---
             echo "<h1>Lỗi: Sai chữ ký (Checksum Failed)</h1>";
             echo "<div style='font-family:monospace'>";
             echo "<b>Secret Key đang dùng:</b> " . $vnp_HashSecret . "<br><br>";
@@ -119,16 +112,17 @@ class LunchController extends Controller
             echo "<b>2. Hash Web mình tính ra:</b> <br>" . $secureHash . "<br><br>";
             echo "<b>3. Chuỗi dữ liệu gốc (hashData):</b> <br>" . $hashData;
             echo "</div>";
-            die(); // Dừng chương trình để bạn đọc lỗi
+            die();
         }
     }
 
-    // 5. Thống kê (Tìm kiếm theo Ngày/Tháng/Năm)
+    // 5. Thống kê
     public function stats(Request $request)
     {
         $day = $request->input('day');
         $month = $request->input('month', date('m'));
         $year = $request->input('year', date('Y'));
+        // $prices = $request->input('prices', []);
 
         $query = \App\Models\LunchOrder::with('user')
             ->where('status', 'paid')
@@ -138,16 +132,17 @@ class LunchController extends Controller
         if ($day) {
             $query->whereDay('created_at', $day);
         }
+        // if (!empty($prices)) {
+        //     $query->whereIn('price', $prices);
+        // }
+
 
         $totalRevenue = $query->sum('price');
-        $orders = $query->orderBy('created_at', 'desc')->paginate(20);
+        $orders = $query->orderBy('created_at', 'desc')->paginate(10);
 
         return view('lunch.stats', compact('orders', 'totalRevenue', 'day', 'month', 'year'));
     }
-
-    // =========================================================================
-    // 🔥 HÀM QUAN TRỌNG: TẠO URL VNPAY (ĐÃ FIX ỔN ĐỊNH 100%)
-    // =========================================================================
+//
     private function createVnpayUrl($order, $paymentMethod = 'VNBANK')
     {
         $vnp_Url = env('VNP_URL');
@@ -157,14 +152,12 @@ class LunchController extends Controller
         // 1. Luôn tạo mã mới để tránh trùng lặp khi bấm lại
         $vnp_TxnRef = $order->id . "_" . date('YmdHis'); 
 
-        // 2. FIX LỖI NỘI DUNG: Chuyển hết thành không dấu, nối bằng gạch dưới
-        // "Thanh toan don 5" -> "Thanh_toan_don_5" (Tránh lỗi dấu cách)
         $vnp_OrderInfo = "Thanh_toan_don_" . $order->id;
 
         $inputData = array(
             "vnp_Version" => "2.1.0",
             "vnp_TmnCode" => $vnp_TmnCode,
-            "vnp_Amount" => (int)$order->price * 100, // Ép kiểu số nguyên
+            "vnp_Amount" => (int)$order->price * 100,
             "vnp_Command" => "pay",
             "vnp_CreateDate" => date('YmdHis'),
             "vnp_CurrCode" => "VND",
@@ -193,10 +186,40 @@ class LunchController extends Controller
             $vnp_Url .= '&vnp_SecureHash=' . $vnpSecureHash;
         }
 
-        // 5. Redirect kèm Header chống Cache (Khắc phục lỗi lúc được lúc không)
+        // 5. Redirect kèm Header chống Cache
         return redirect($vnp_Url)
                 ->header('Cache-Control', 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0')
                 ->header('Pragma', 'no-cache')
                 ->header('Expires', '0');
+    }
+
+    // --- QUẢN LÝ CẤU HÌNH GIÁ ---
+    public function config()
+    {
+        if (Auth::user()->role != 0) abort(403, 'Chỉ Admin mới được cấu hình giá.');
+        
+        $prices = LunchPrice::orderBy('price', 'asc')->get();
+        return view('lunch.config', compact('prices'));
+    }
+
+    public function storePrice(Request $request)
+    {
+        if (Auth::user()->role != 0) abort(403);
+        
+        $request->validate([
+            'price' => 'required|integer|min:1000|unique:lunch_prices,price'
+        ]);
+
+        LunchPrice::create(['price' => $request->price]);
+
+        return back()->with('success', 'Đã thêm mức giá mới.');
+    }
+
+    public function deletePrice($id)
+    {
+        if (Auth::user()->role != 0) abort(403);
+        
+        LunchPrice::destroy($id);
+        return back()->with('success', 'Đã xóa mức giá.');
     }
 }
