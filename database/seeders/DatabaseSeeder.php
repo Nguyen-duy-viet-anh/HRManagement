@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Models\Company;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
@@ -22,7 +21,7 @@ class DatabaseSeeder extends Seeder
         echo " Đang chuẩn bị dữ liệu 500.000 bản ghi...\n";
 
         // 2. TẠO SUPER ADMIN
-        $hashedPassword = Hash::make('123456'); 
+        $hashedPassword = bcrypt('123456'); 
         User::updateOrCreate(
             ['email' => 'admin@gmail.com'],
             [

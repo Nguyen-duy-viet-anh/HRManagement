@@ -7,7 +7,6 @@
     <div class="card shadow-sm mb-4">
         <div class="card-body bg-light">
             <form action="{{ route('lunch.stats') }}" method="GET" class="row g-2 align-items-end">
-                
                 <div class="col-md-2">
                     <label class="form-label fw-bold">Ngày:</label>
                     <select name="day" class="form-select">
@@ -43,7 +42,7 @@
                 </div>
 
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">🔍 Xem</button>
+                    <button type="submit" class="btn btn-primary w-100">Xem</button>
                 </div>
                 
                 <div class="col-md-4 text-end">
@@ -58,15 +57,20 @@
     </div>
 
     <div class="card shadow">
-        <div class="card-header bg-dark text-white d-flex justify-content-between">
-            <h6 class="m-0 align-middle pt-1">Danh sách giao dịch</h6>
-            <span class="badge bg-light text-dark">Tìm thấy: {{ $orders->total() }} đơn</span>
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h6 class="m-0">Danh sách giao dịch</h6>
+            <div>
+                <a href="{{ route('lunch.all-logs') }}" class="btn btn-outline-light btn-sm me-2">
+                    Xem tất cả Log VNPay
+                </a>
+                <span class="badge bg-light text-dark">Tìm thấy: {{ $orders->total() }} đơn</span>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table table-bordered table-hover mb-0 align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th class="text-center">#</th>
+                        <th class="text-center" style="width: 50px">#</th>
                         <th>Nhân viên</th>
                         <th>Thời gian</th>
                         <th>Chi tiết</th>
@@ -76,7 +80,7 @@
                 <tbody>
                     @forelse($orders as $key => $order)
                     <tr>
-                        <td class="text-center">{{ $key + 1 }}</td>
+                        <td class="text-center">{{ ($orders->currentPage() - 1) * $orders->perPage() + $key + 1 }}</td>
                         <td>
                             <div class="fw-bold text-primary">{{ $order->user->name ?? 'User đã xóa' }}</div>
                             <small class="text-muted">{{ $order->user->email ?? '' }}</small>

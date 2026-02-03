@@ -59,5 +59,13 @@ class User extends Authenticatable
     public function attendances() {
         return $this->hasMany(Attendance::class);
     }
+
+    public function vnpayLogs() {
+        return $this->hasMany(VnpayTransactionLog::class);
+    }
+
+    public function lunchOrders() {
+        return $this->hasMany(LunchOrder::class);
+    }
     
 }

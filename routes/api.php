@@ -17,3 +17,6 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+// VNPay IPN - Server-to-Server callback (không cần auth)
+Route::post('/vnpay/ipn', [\App\Http\Controllers\LunchController::class, 'vnpayIPN'])->name('vnpay.ipn');

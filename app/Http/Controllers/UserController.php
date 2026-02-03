@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Models\Company;
 use App\Models\UserFile;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage; 
 use Illuminate\Support\Str;
@@ -74,7 +73,7 @@ class UserController extends Controller
         ]);
 
         $data = $request->all();
-        $data['password'] = Hash::make($request->password);
+        $data['password'] = bcrypt($request->password);
         
         $newUserId = (string) Str::uuid();
         $data['id'] = $newUserId;
@@ -170,7 +169,7 @@ class UserController extends Controller
         $data = $request->all();
 
         if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
+            $data['password'] = bcrypt($request->password);
         } else {
             unset($data['password']);
         }
