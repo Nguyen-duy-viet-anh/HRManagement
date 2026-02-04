@@ -126,6 +126,19 @@ return [
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
+
+        // ========================================
+        // ONEPAY PAYMENT GATEWAY LOG CHANNEL
+        // ========================================
+        // Channel riêng cho OnePay để dễ dàng theo dõi và debug
+        // Log được ghi vào file: storage/logs/onepay-{date}.log
+        'onepay' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/onepay.log'),
+            'level' => env('ONEPAY_LOG_LEVEL', 'debug'),
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
     ],
 
 ];

@@ -19,4 +19,11 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 // VNPay IPN - Server-to-Server callback (không cần auth)
-Route::post('/vnpay/ipn', [\App\Http\Controllers\LunchController::class, 'vnpayIPN'])->name('vnpay.ipn');
+Route::post('/vnpay/ipn', [\App\Http\Controllers\VnpayController::class, 'handleIPN'])->name('vnpay.ipn');
+
+// ========================================
+// ONEPAY PAYMENT GATEWAY ROUTES
+// ========================================
+// IPN (Instant Payment Notification) - Server-to-Server callback
+// QUAN TRỌNG: Endpoint này KHÔNG cần authentication vì OnePay gọi trực tiếp
+Route::post('/onepay/ipn', [\App\Http\Controllers\OnepayController::class, 'handleIpn'])->name('onepay.ipn');

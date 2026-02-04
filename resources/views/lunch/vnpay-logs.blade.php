@@ -16,7 +16,7 @@
                 </div>
             </div>
         @else
-            <h4 class="fw-bold mb-0">Quản lý Log VNPay</h4>
+            <h4 class="fw-bold mb-0">Quản lý Log Thanh Toán</h4>
             <a href="{{ route('lunch.stats') }}" class="btn btn-outline-secondary btn-sm">
                 ← Quay lại Thống kê
             </a>
@@ -30,6 +30,14 @@
                 @if(isset($user))
                     <input type="hidden" name="user_id" value="{{ $user->id }}">
                 @endif
+                <div class="col-auto">
+                    <label class="form-label small mb-0">Cổng TT</label>
+                    <select name="gateway" class="form-select form-select-sm">
+                        <option value="">Tất cả</option>
+                        <option value="vnpay" {{ ($gateway ?? '') == 'vnpay' ? 'selected' : '' }}>VNPay</option>
+                        <option value="onepay" {{ ($gateway ?? '') == 'onepay' ? 'selected' : '' }}>OnePay</option>
+                    </select>
+                </div>
                 <div class="col-auto">
                     <label class="form-label small mb-0">Ngày</label>
                     <input type="number" name="day" class="form-control form-control-sm" min="1" max="31" 
@@ -97,15 +105,38 @@
                     $lastLog = $orderLogs->sortByDesc('created_at')->first();
                     $finalStatus = $order ? $order->status : ($lastLog->status ?? 'unknown');
                     
+                    // Xác định gateway của order này
+                    $orderGateway = $firstLog->gateway ?? 'vnpay';
+                    
                     // Lấy thông tin thanh toán từ log có đầy đủ thông tin nhất
-                    $paymentLog = $orderLogs->whereNotNull('vnp_transaction_no')->first() ?? $orderLogs->whereNotNull('vnp_txn_ref')->first();
+                    if ($orderGateway == 'vnpay') {
+                        $paymentLog = $orderLogs->whereNotNull('vnp_transaction_no')->first() ?? $orderLogs->whereNotNull('vnp_txn_ref')->first();
+                        $txnRef = $paymentLog->vnp_txn_ref ?? null;
+                        $amount = $paymentLog ? ($paymentLog->vnp_amount / 100) : null;
+                        $bankCode = $paymentLog->vnp_bank_code ?? null;
+                    } else {
+                        $paymentLog = $orderLogs->whereNotNull('txn_ref')->first();
+                        $txnRef = $paymentLog->txn_ref ?? null;
+                        $amount = $paymentLog->amount ?? null;
+                        $bankCode = null;
+                    }
                 @endphp
                 <div class="border-bottom">
                     <!-- Header của Order (click để mở rộng) -->
                     <div class="d-flex align-items-center p-3 bg-light" 
                          style="cursor: pointer;" 
                          data-bs-toggle="collapse" 
-                         data-bs-target="#order-{{ $orderId ?? 'null' }}">
+                         data-bs-target="#order-{{ $orderId ?? 'null' }}-{{ $loop->index }}">
+                        
+                        <!-- Badge gateway -->
+                        <div class="me-2">
+                            @if($orderGateway == 'onepay')
+                                <span class="badge bg-success">OnePay</span>
+                            @else
+                                <span class="badge bg-primary">VNPay</span>
+                            @endif
+                        </div>
+                        
                         <div class="me-3">
                             <span class="fw-bold">
                                 @if($orderId)
@@ -131,15 +162,15 @@
                             {{ $firstLog->created_at->format('d/m/Y H:i') }}
                         </div>
                         
-                        @if($paymentLog && $paymentLog->vnp_amount)
+                        @if($amount)
                             <div class="me-3 fw-bold">
-                                {{ number_format($paymentLog->real_amount) }}đ
+                                {{ number_format($amount) }}đ
                             </div>
                         @endif
 
-                        @if($paymentLog && $paymentLog->vnp_bank_code)
+                        @if($bankCode)
                             <div class="me-3 small">
-                                {{ $paymentLog->vnp_bank_code }}
+                                {{ $bankCode }}
                             </div>
                         @endif
                         
@@ -161,7 +192,7 @@
                     </div>
                     
                     <!-- Chi tiết các bước (collapse) -->
-                    <div class="collapse" id="order-{{ $orderId ?? 'null' }}">
+                    <div class="collapse" id="order-{{ $orderId ?? 'null' }}-{{ $loop->index }}">
                         <div class="p-3 bg-white">
                             <table class="table table-sm mb-0 small">
                                 <thead>
@@ -179,21 +210,37 @@
                                         <td class="text-muted">
                                             {{ $log->created_at->format('H:i:s') }}
                                         </td>
-                                        <td>{{ $log->event_name }}</td>
                                         <td>
-                                            <div>{{ Str::limit($log->description, 80) }}</div>
-                                            @if($log->vnp_response_code && $log->vnp_response_code != '00')
+                                            @if($log->gateway == 'onepay')
+                                                {{ $log->event_display ?? $log->event }}
+                                            @else
+                                                {{ $log->event_name }}
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div>{{ Str::limit($log->gateway == 'onepay' ? $log->message : $log->description, 80) }}</div>
+                                            @if($log->gateway == 'vnpay' && $log->vnp_response_code && $log->vnp_response_code != '00')
                                                 <small class="text-muted">
                                                     Mã phản hồi: {{ $log->vnp_response_code }} ({{ $log->response_description }})
+                                                </small>
+                                            @elseif($log->gateway == 'onepay' && $log->response_code && $log->response_code != '0')
+                                                <small class="text-muted">
+                                                    Mã phản hồi: {{ $log->response_code }}
                                                 </small>
                                             @endif
                                         </td>
                                         <td class="small">
-                                            @if($log->vnp_txn_ref)
-                                                <code>{{ Str::limit($log->vnp_txn_ref, 18) }}</code>
-                                            @endif
-                                            @if($log->vnp_transaction_no)
-                                                <br><span class="text-muted">GD: {{ $log->vnp_transaction_no }}</span>
+                                            @if($log->gateway == 'vnpay')
+                                                @if($log->vnp_txn_ref)
+                                                    <code>{{ Str::limit($log->vnp_txn_ref, 18) }}</code>
+                                                @endif
+                                                @if($log->vnp_transaction_no)
+                                                    <br><span class="text-muted">GD: {{ $log->vnp_transaction_no }}</span>
+                                                @endif
+                                            @else
+                                                @if($log->txn_ref)
+                                                    <code>{{ Str::limit($log->txn_ref, 18) }}</code>
+                                                @endif
                                             @endif
                                         </td>
                                         <td>

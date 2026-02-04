@@ -15,6 +15,28 @@ Route::get('/', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// ========================================
+// ONEPAY TEST ROUTE (CHỈ DÙNG CHO DEVELOPMENT)
+// ========================================
+Route::get('/onepay/test', function () {
+    $onepayService = app(\App\Services\OnepayService::class);
+    
+    // Tạo payment URL test
+    $txnRef = 'TEST_' . date('Ymd_His') . '_' . rand(1000, 9999);
+    $amount = 25000; // 25,000 VND
+    $customerIp = request()->ip() ?: '127.0.0.1';
+    $orderInfo = 'Test_Order_' . $txnRef;
+    $returnUrl = url('/onepay/return');
+    
+    $paymentUrl = $onepayService->createPaymentUrl(
+        $txnRef, $amount, $customerIp, $orderInfo, $returnUrl
+    );
+    
+    return redirect($paymentUrl);
+})->name('onepay.test');
+
+// ========================================
+
 // --- ROUTE CẦN ĐĂNG NHẬP (AUTH) ---
 Route::middleware('auth')->group(function () {
     
@@ -84,6 +106,20 @@ Route::post('/lunch/update-order/{orderId}', [LunchController::class, 'updateOrd
     // --- ROUTE CHUNG CHO CƠM TRƯA (Admin cũng có thể vào mua/xem) ---
     Route::get('/lunch', [LunchController::class, 'index'])->name('lunch.index');
     Route::post('/lunch/order', [LunchController::class, 'order'])->name('lunch.order');
-    Route::get('/lunch/return', [LunchController::class, 'vnpayReturn'])->name('lunch.return');
     Route::get('/lunch/repay/{id}', [LunchController::class, 'repay'])->name('lunch.repay');
+
+    // ========================================
+    // VNPAY PAYMENT GATEWAY ROUTES
+    // ========================================
+    // Return URL - VNPay redirect về sau khi thanh toán
+    Route::get('/vnpay/return', [\App\Http\Controllers\VnpayController::class, 'handleReturn'])->name('vnpay.return');
+
+    // ========================================
+    // ONEPAY PAYMENT GATEWAY ROUTES
+    // ========================================
+    // Tạo yêu cầu thanh toán qua OnePay
+    Route::post('/onepay/create-payment', [\App\Http\Controllers\OnepayController::class, 'createPayment'])->name('onepay.create');
+    
+    // Return URL - OnePay redirect về sau khi thanh toán
+    Route::get('/onepay/return', [\App\Http\Controllers\OnepayController::class, 'handleReturn'])->name('onepay.return');
 });

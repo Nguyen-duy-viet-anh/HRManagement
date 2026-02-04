@@ -31,4 +31,14 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // ========================================
+    // CẤU HÌNH ONEPAY PAYMENT GATEWAY
+    // ========================================
+    'onepay' => [
+        'payment_url'   => env('ONEPAY_PAYMENT_URL'),
+        'merchant_id'   => env('ONEPAY_MERCHANT_ID'),
+        'access_code'   => env('ONEPAY_ACCESS_CODE'),
+        'secure_secret' => env('ONEPAY_SECURE_SECRET'),
+    ],
+
 ];

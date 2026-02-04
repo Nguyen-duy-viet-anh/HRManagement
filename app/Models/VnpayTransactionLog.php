@@ -113,6 +113,14 @@ class VnpayTransactionLog extends Model
     }
 
     /**
+     * Lấy tên hiển thị của event (dùng chung cho payment-logs view)
+     */
+    public function getEventDisplayAttribute()
+    {
+        return $this->event_name; // event_name đã được định nghĩa ở trên
+    }
+
+    /**
      * Mô tả mã phản hồi VNPay
      */
     public function getResponseDescriptionAttribute()
