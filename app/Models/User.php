@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Str; 
 use Illuminate\Database\Eloquent\Concerns\HasUuids; 
 use App\Models\UserFile; // Import model UserFile
@@ -12,7 +13,7 @@ use App\Models\UserFile; // Import model UserFile
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     public $incrementing = false; 
     protected $keyType = 'string';
