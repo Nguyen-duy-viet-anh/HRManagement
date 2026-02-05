@@ -68,7 +68,36 @@
 
         {{-- PHÂN TRANG --}}
         <div class="mt-4 d-flex justify-content-center">
-            {{ $files->links() }}
+        {{-- ...existing code... --}}
+    </div>
+    @if($files->hasPages())
+        <nav class="d-flex justify-content-center mt-3">
+            <ul class="pagination">
+                <li class="page-item{{ $files->onFirstPage() ? ' disabled' : '' }}">
+                    <a class="page-link" href="{{ $files->url(1) }}" tabindex="-1">&laquo;</a>
+                </li>
+                <li class="page-item{{ $files->onFirstPage() ? ' disabled' : '' }}">
+                    <a class="page-link" href="{{ $files->previousPageUrl() }}" tabindex="-1">&lsaquo;</a>
+                </li>
+                @php
+                    $window = 2;
+                    $start = max(1, $files->currentPage() - $window);
+                    $end = min($files->lastPage(), $files->currentPage() + $window);
+                @endphp
+                @for ($page = $start; $page <= $end; $page++)
+                    <li class="page-item{{ $page == $files->currentPage() ? ' active' : '' }}">
+                        <a class="page-link" href="{{ $files->url($page) }}">{{ $page }}</a>
+                    </li>
+                @endfor
+                <li class="page-item{{ $files->currentPage() == $files->lastPage() ? ' disabled' : '' }}">
+                    <a class="page-link" href="{{ $files->nextPageUrl() }}">&rsaquo;</a>
+                </li>
+                <li class="page-item{{ $files->currentPage() == $files->lastPage() ? ' disabled' : '' }}">
+                    <a class="page-link" href="{{ $files->url($files->lastPage()) }}">&raquo;</a>
+                </li>
+            </ul>
+        </nav>
+    @endif
         </div>
     @else
         <div class="text-center py-5 bg-light rounded">

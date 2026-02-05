@@ -3,226 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý Nhân sự</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>@yield('title', 'HR System - Quản lý Nhân sự')</title>
     
+    {{-- Google Fonts --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    {{-- Bootstrap CSS --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    {{-- Bootstrap Icons --}}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     
-    <link href="{{ asset('./resources/css/layout.css') }}" rel="stylesheet">
-    <style>
-        body { overflow-x: hidden; background-color: #f8f9fa; } /* Thêm màu nền nhẹ cho đẹp */
-        #wrapper { display: flex; width: 100%; }
-        #sidebar-wrapper { min-height: 100vh; width: 250px; margin-left: 0; transition: margin .25s ease-out; }
-        #sidebar-wrapper .list-group { width: 250px; }
-        #page-content-wrapper { width: 100%; }
-        
-        @media (max-width: 768px) {
-            #sidebar-wrapper { margin-left: -250px; }
-            body.sb-sidenav-toggled #sidebar-wrapper { margin-left: 0; }
-        }
-        @media (min-width: 769px) {
-            body.sb-sidenav-toggled #sidebar-wrapper { margin-left: -250px; }
-        }
-        .list-group-item.active { z-index: 2; color: #fff; background-color: #0d6efd; border-color: #0d6efd; }
-
-        .role-2-nav .nav-link.active { font-weight: bold; color: #0d6efd !important; border-bottom: 2px solid #0d6efd; }
-
-        .container-role-2 {
-            width: 80%;       
-            margin: 0 auto;       
-            max-width: 1400px;    
-        }
-        @media (max-width: 992px) {
-            .container-role-2 { width: 96%; }
-        }
-    </style>
+    {{-- Custom CSS --}}
+    <link href="{{ asset('css/layout.css') }}" rel="stylesheet">
+    
+    @stack('styles')
 </head>
 <body>
-    <div class="d-flex" id="wrapper">
+    <div class="wrapper">
         @auth
             @if(Auth::user()->role != 2)
-            <div class="bg-white border-end" id="sidebar-wrapper">
-                <div class="sidebar-heading border-bottom bg-light p-4">
-                    <a class="text-decoration-none fw-bold text-dark d-flex align-items-center" href="{{ route('dashboard') }}">
-                        <i class="bi bi-buildings-fill text-primary me-2"></i> HR SYSTEM
+            {{-- ========================================
+                 SIDEBAR - Admin & Manager
+                 ======================================== --}}
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-brand">
+                    <a href="{{ route('dashboard') }}">
+                        <i class="bi bi-hexagon-fill"></i>
+                        <span>HR System</span>
                     </a>
                 </div>
-                <div class="list-group list-group-flush">
-                    <a class="list-group-item list-group-item-action list-group-item-light p-3 {{ request()->is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">Tổng quan</a>
+                
+                <nav class="sidebar-nav">
+                    <a href="{{ route('dashboard') }}" class="{{ request()->is('dashboard') ? 'active' : '' }}">
+                        <i class="bi bi-grid-1x2-fill"></i>
+                        <span>Tổng quan</span>
+                    </a>
                     
                     @if(Auth::user()->role == 0)
-                        <a class="list-group-item list-group-item-action list-group-item-light p-3 {{ request()->is('companies*') ? 'active' : '' }}" href="{{ route('companies.index') }}">Công ty</a>
+                        <a href="{{ route('companies.index') }}" class="{{ request()->is('companies*') ? 'active' : '' }}">
+                            <i class="bi bi-building"></i>
+                            <span>Quản lý Công ty</span>
+                        </a>
                     @endif
 
                     @if(Auth::user()->role == 1)
-                        <a class="list-group-item list-group-item-action list-group-item-light p-3 {{ request()->is('companies/*/edit') ? 'active' : '' }}" href="{{ route('companies.edit', Auth::user()->company_id) }}">Đơn vị</a>
+                        <a href="{{ route('companies.edit', Auth::user()->company_id) }}" class="{{ request()->is('companies/*/edit') ? 'active' : '' }}">
+                            <i class="bi bi-building-check"></i>
+                            <span>Thông tin Đơn vị</span>
+                        </a>
                     @endif
 
                     @if(Auth::user()->role == 0 || Auth::user()->role == 1)
-                        <a class="list-group-item list-group-item-action list-group-item-light p-3 {{ request()->is('users*') ? 'active' : '' }}" href="{{ route('users.index') }}">Nhân sự</a>
-                        <a class="list-group-item list-group-item-action list-group-item-light p-3 {{ request()->is('attendance*') ? 'active' : '' }}" href="{{ route('attendance.index') }}">Chấm công</a>
-                        <a class="list-group-item list-group-item-action list-group-item-light p-3 {{ request()->is('salary*') ? 'active' : '' }}" href="{{ route('salary.index') }}">Bảng lương</a>
-                        <a class="list-group-item list-group-item-action list-group-item-light p-3 {{ request()->routeIs('lunch.stats') ? 'active' : '' }}" href="{{ route('lunch.stats') }}">Báo cáo & Thống kê</a>
-                        <a class="list-group-item list-group-item-action list-group-item-light p-3 {{ request()->routeIs('lunch.config') ? 'active' : '' }}" href="{{ route('lunch.config') }}">Cấu hình mệnh giá</a>
-                        <a class="list-group-item list-group-item-action list-group-item-light p-3 {{ request()->routeIs('notifications.create') ? 'active' : '' }}" href="{{ route('notifications.create') }}">Gửi TB</a>
+                        <a href="{{ route('users.index') }}" class="{{ request()->is('users*') ? 'active' : '' }}">
+                            <i class="bi bi-people-fill"></i>
+                            <span>Quản lý Nhân sự</span>
+                        </a>
+                        
+                        <a href="{{ route('attendance.index') }}" class="{{ request()->is('attendance*') ? 'active' : '' }}">
+                            <i class="bi bi-calendar2-check"></i>
+                            <span>Chấm công</span>
+                        </a>
+                        
+                        <a href="{{ route('notifications.create') }}" class="{{ request()->routeIs('notifications.create') ? 'active' : '' }}">
+                            <i class="bi bi-megaphone-fill"></i>
+                            <span>Gửi thông báo</span>
+                        </a>
+                        
+                        <a href="{{ route('lunch.stats') }}" class="{{ request()->routeIs('lunch.stats') ? 'active' : '' }}">
+                            <i class="bi bi-graph-up"></i>
+                            <span>Thống kê cơm trưa</span>
+                        </a>
+                        
+                        <a href="{{ route('salary.index') }}" class="{{ request()->is('salary*') ? 'active' : '' }}">
+                            <i class="bi bi-wallet2"></i>
+                            <span>Bảng lương</span>
+                        </a>
+                        
+                        <a href="{{ route('lunch.config') }}" class="{{ request()->routeIs('lunch.config') ? 'active' : '' }}">
+                            <i class="bi bi-gear-fill"></i>
+                            <span>Cấu hình giá tiền</span>
+                        </a>
                     @endif
+                </nav>
+                
+                <div class="sidebar-footer">
+                    <span>© {{ date('Y') }} HR System v1.0</span>
                 </div>
-            </div>
+            </aside>
             @endif
         @endauth
 
-        <div id="page-content-wrapper">
+        {{-- ========================================
+             MAIN CONTENT
+             ======================================== --}}
+        <div class="main-content {{ Auth::check() && Auth::user()->role == 2 ? 'full-width' : '' }}">
             
-            {{-- NAVBAR --}}
-            <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom mb-4 shadow-sm">
-                <div class="{{ Auth::user() && Auth::user()->role == 2 ? 'container-role-2' : 'container-fluid' }}">
+            {{-- HEADER --}}
+            <header class="header">
+                <div style="display: flex; align-items: center; gap: 16px;">
                     @auth
                         @if(Auth::user()->role != 2)
-                            <button class="btn btn-outline-primary" id="sidebarToggle"><i class="bi bi-list"></i></button>
+                            <button class="mobile-toggle" onclick="toggleSidebar()">
+                                <i class="bi bi-list"></i>
+                            </button>
                         @else
-                            <a class="navbar-brand fw-bold text-dark d-flex align-items-center" href="{{ route('dashboard') }}">
-                                <i class="bi bi-buildings-fill text-primary me-2"></i> HR SYSTEM
+                            {{-- Logo cho Employee --}}
+                            <a href="{{ route('dashboard') }}" class="header-brand">
+                                <i class="bi bi-hexagon-fill"></i>
+                                <span>HR System</span>
                             </a>
+                            
+                            {{-- Navigation cho Employee --}}
+                            <nav class="header-nav" style="margin-left: 32px;">
+                                <a href="{{ route('dashboard') }}" class="{{ request()->is('dashboard') ? 'active' : '' }}">
+                                    <i class="bi bi-grid-1x2"></i>
+                                    <span>Tổng quan</span>
+                                </a>
+                                <a href="{{ route('profile.show') }}" class="{{ request()->is('my-profile*') ? 'active' : '' }}">
+                                    <i class="bi bi-person"></i>
+                                    <span>Hồ sơ</span>
+                                </a>
+                                <a href="{{ route('attendance.history') }}" class="{{ request()->routeIs('attendance.history') ? 'active' : '' }}">
+                                    <i class="bi bi-clock-history"></i>
+                                    <span>Lịch sử</span>
+                                </a>
+                                <a href="{{ route('colleagues.index') }}" class="{{ request()->is('colleagues*') ? 'active' : '' }}">
+                                    <i class="bi bi-people"></i>
+                                    <span>Đồng nghiệp</span>
+                                </a>
+                                <a href="{{ route('lunch.index') }}" class="{{ request()->routeIs('lunch.*') ? 'active' : '' }}">
+                                    <i class="bi bi-cup-hot"></i>
+                                    <span>Đặt cơm</span>
+                                </a>
+                            </nav>
                         @endif
                     @endauth
-
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-
-                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                        
-                        {{-- MENU NGANG (ROLE 2) --}}
-                        @auth
-                            @if(Auth::user()->role == 2)
-                            <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-4 role-2-nav">
-                                <li class="nav-item">
-                                    <a class="nav-link {{ request()->is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">Tổng quan</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {{ request()->is('my-profile*') ? 'active' : '' }}" href="{{ route('profile.show') }}">Hồ sơ</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {{ request()->routeIs('attendance.history') ? 'active' : '' }}" href="{{ route('attendance.history') }}">Lịch sử</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {{ request()->is('colleagues*') ? 'active' : '' }}" href="{{ route('colleagues.index') }}">Đồng nghiệp</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link {{ request()->routeIs('lunch.*') ? 'active' : '' }}" href="{{ route('lunch.index') }}">Ăn trưa</a>
-                                </li>
-                            </ul>
-                            @endif
-                        @endauth
-
-                        <ul class="navbar-nav ms-auto mt-2 mt-lg-0 align-items-center">
-                            @auth
-                                @if(Auth::user()->role != 0)
-                                <li class="nav-item dropdown me-3">
-                                    <a class="nav-link position-relative" href="#" role="button" data-bs-toggle="dropdown">
-                                        <i class="bi bi-bell-fill fs-5 text-secondary"></i>
-                                        @if(Auth::user()->unreadNotifications->count() > 0)
-                                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light">
-                                                {{ Auth::user()->unreadNotifications->count() }}
-                                            </span>
-                                        @endif
-                                    </a>
-                                    <ul class="dropdown-menu dropdown-menu-end notification-dropdown">
-                                        <li class="d-flex justify-content-between align-items-center px-3 py-2 bg-white border-bottom sticky-top">
-                                            <h6 class="mb-0 fw-bold text-dark">Thông báo</h6>
-                                            @if(Auth::user()->unreadNotifications->count() > 0)
-                                                <a href="{{ route('notifications.markAllRead') }}" class="text-decoration-none small fw-bold text-primary">Đọc hết</a>
-                                            @endif
-                                        </li>
-                                        <div style="max-height: 400px; overflow-y: auto;">
-                                            @forelse(Auth::user()->notifications as $notification)
-                                                <li>
-                                                    <a class="dropdown-item p-3 notification-item border-bottom {{ $notification->read_at ? 'bg-white' : 'bg-light' }}" href="#">
-                                                        <div class="d-flex">
-                                                            <div class="flex-grow-1">
-                                                                <strong class="text-dark small">{{ $notification->data['title'] ?? 'TB Hệ thống' }}</strong>
-                                                                <p class="mb-0 text-secondary text-wrap small">{{ $notification->data['content'] ?? '' }}</p>
-                                                            </div>
-                                                            @if(!$notification->read_at)
-                                                                <div class="ms-2"><span class="badge bg-primary rounded-circle p-1"></span></div>
-                                                            @endif
-                                                        </div>
-                                                    </a>
-                                                </li>
-                                            @empty
-                                                <li class="text-center py-3 text-muted small">Không có thông báo</li>
-                                            @endforelse
-                                        </div>
-                                    </ul>
-                                </li>
-                                @endif
-
-                                @php
-                                    $user = Auth::user();
-                                    $avatar = $user->avatar;
-                                    if (filter_var($avatar, FILTER_VALIDATE_URL)) { $userAvatar = $avatar; } 
-                                    elseif ($avatar) { $userAvatar = asset('storage/' . $avatar); } 
-                                    else { $userAvatar = 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&background=f0f2f5&color=333'; }
-                                @endphp
-
-                                <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle d-flex align-items-center pe-0" href="#" role="button" data-bs-toggle="dropdown">
-                                        <div class="text-end me-2 d-none d-lg-block">
-                                            <div class="fw-bold text-dark small">{{ $user->name }}</div>
-                                            <div class="text-muted" style="font-size: 0.75rem;">
-                                                {{ $user->role == 0 ? 'Admin' : ($user->role == 1 ? 'Quản lý' : 'Nhân viên') }}
-                                            </div>
-                                        </div>
-                                        <img src="{{ $userAvatar }}" width="36" height="36" class="rounded-circle border" style="object-fit: cover;">
-                                    </a>
-                                    <ul class="dropdown-menu dropdown-menu-end mt-2">
-                                        <li>
-                                            <form action="{{ route('logout') }}" method="POST">
-                                                @csrf
-                                                <button type="submit" class="dropdown-item text-danger fw-bold">
-                                                    <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
-                                                </button>
-                                            </form>
-                                        </li>
-                                    </ul>
-                                </li>
-                            @endauth
-                        </ul>
-                    </div>
                 </div>
-            </nav>
-            <div class="{{ Auth::user() && Auth::user()->role == 2 ? 'container-role-2' : 'container-fluid px-4' }} pb-5">
-                
+
+                <div class="user-menu">
+                    @auth
+                        {{-- Notification Bell --}}
+                        @if(Auth::user()->role != 0)
+                        <div class="dropdown">
+                            <button class="notification-btn" onclick="toggleDropdown(this)">
+                                <i class="bi bi-bell"></i>
+                                @if(Auth::user()->unreadNotifications->count() > 0)
+                                    <span class="notification-badge">{{ Auth::user()->unreadNotifications->count() }}</span>
+                                @endif
+                            </button>
+                            <div class="notification-dropdown dropdown-menu-custom">
+                                <div class="notification-header">
+                                    <h6><i class="bi bi-bell-fill me-2"></i>Thông báo</h6>
+                                    @if(Auth::user()->unreadNotifications->count() > 0)
+                                        <a href="{{ route('notifications.markAllRead') }}">Đánh dấu đã đọc</a>
+                                    @endif
+                                </div>
+                                <div class="notification-list">
+                                    @forelse(Auth::user()->notifications->take(5) as $notification)
+                                        <a href="#" class="notification-item {{ $notification->read_at ? '' : 'unread' }}">
+                                            <div class="notification-title">{{ $notification->data['title'] ?? 'Thông báo mới' }}</div>
+                                            <p class="notification-text">{{ Str::limit($notification->data['content'] ?? '', 80) }}</p>
+                                        </a>
+                                    @empty
+                                        <div class="notification-empty">
+                                            <i class="bi bi-bell-slash"></i>
+                                            Không có thông báo nào
+                                        </div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- User Dropdown --}}
+                        @php
+                            $user = Auth::user();
+                            $avatar = $user->avatar;
+                            if (filter_var($avatar, FILTER_VALIDATE_URL)) { 
+                                $userAvatar = $avatar; 
+                            } elseif ($avatar) { 
+                                $userAvatar = asset('storage/' . $avatar); 
+                            } else { 
+                                $userAvatar = 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&background=6366f1&color=fff&bold=true'; 
+                            }
+                        @endphp
+
+                        <div class="dropdown">
+                            <button class="user-dropdown-btn" onclick="toggleDropdown(this)">
+                                <div class="user-info">
+                                    <div class="user-name">{{ $user->name }}</div>
+                                    <div class="user-role">
+                                        @if($user->role == 0)
+                                            <i class="bi bi-shield-fill text-danger me-1"></i>Administrator
+                                        @elseif($user->role == 1)
+                                            <i class="bi bi-star-fill text-warning me-1"></i>Quản lý
+                                        @else
+                                            <i class="bi bi-person-fill text-info me-1"></i>Nhân viên
+                                        @endif
+                                    </div>
+                                </div>
+                                <img src="{{ $userAvatar }}" class="user-avatar" alt="{{ $user->name }}">
+                            </button>
+                            <div class="dropdown-menu-custom">
+                                @if(Auth::user()->role == 2)
+                                <a href="{{ route('profile.show') }}" class="dropdown-item-custom">
+                                    <i class="bi bi-person-circle"></i>
+                                    <span>Hồ sơ của tôi</span>
+                                </a>
+                                @endif
+                                <form action="{{ route('logout') }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="dropdown-item-custom text-danger">
+                                        <i class="bi bi-box-arrow-right"></i>
+                                        <span>Đăng xuất</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    @endauth
+                </div>
+            </header>
+
+            {{-- CONTENT --}}
+            <div class="content">
+                {{-- Flash Messages --}}
                 @if(session('success'))
-                    <div class="alert alert-success border-0 shadow-sm d-flex align-items-center mb-4">
-                        <i class="bi bi-check-circle-fill me-2 fs-5"></i>
-                        <div>{{ session('success') }}</div>
+                    <div class="alert-box alert-success">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>{{ session('success') }}</span>
                     </div>
                 @endif
 
                 @if(session('error'))
-                    <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center mb-4">
-                        <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
-                        <div>{{ session('error') }}</div>
+                    <div class="alert-box alert-error">
+                        <i class="bi bi-x-circle-fill"></i>
+                        <span>{{ session('error') }}</span>
+                    </div>
+                @endif
+
+                @if(session('warning'))
+                    <div class="alert-box alert-warning">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>{{ session('warning') }}</span>
                     </div>
                 @endif
                 
                 @yield('content')
             </div>
+
+            {{-- FOOTER
+            <footer class="footer">
+                <div class="footer-content">
+                    <span>© {{ date('Y') }} HR System</span>
+                    <span class="footer-divider">•</span>
+                    <span>Phiên bản 1.0</span>
+                    <span class="footer-divider">•</span>
+                    <span>Powered with <i class="bi bi-heart-fill text-danger"></i></span>
+                </div>
+            </footer> --}}
         </div>
     </div>
 
+    {{-- Sidebar Overlay (Mobile) --}}
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+    {{-- Bootstrap JS --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {{-- Custom JS --}}
     <script>
-        window.addEventListener('DOMContentLoaded', event => {
-            const sidebarToggle = document.body.querySelector('#sidebarToggle');
-            if (sidebarToggle) {
-                sidebarToggle.addEventListener('click', event => {
-                    event.preventDefault();
-                    document.body.classList.toggle('sb-sidenav-toggled');
+        // Toggle Sidebar
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('show');
+            document.body.classList.toggle('sidebar-open');
+        }
+        
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('show');
+            document.body.classList.remove('sidebar-open');
+        }
+        
+        // Toggle Dropdown
+        function toggleDropdown(btn) {
+            const menu = btn.nextElementSibling;
+            document.querySelectorAll('.dropdown-menu-custom.show').forEach(el => {
+                if (el !== menu) el.classList.remove('show');
+            });
+            menu.classList.toggle('show');
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.dropdown')) {
+                document.querySelectorAll('.dropdown-menu-custom.show').forEach(el => {
+                    el.classList.remove('show');
                 });
             }
         });
+
+        // Auto-hide alerts after 5 seconds
+        setTimeout(() => {
+            document.querySelectorAll('.alert-box').forEach(alert => {
+                alert.style.opacity = '0';
+                alert.style.transform = 'translateX(-20px)';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }, 5000);
+
+        // Add CSRF token to all AJAX requests
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = document.querySelector('meta[name="csrf-token"]');
+            if (token) {
+                window.csrfToken = token.getAttribute('content');
+            }
+        });
     </script>
+    
+    @stack('scripts')
 </body>
 </html>

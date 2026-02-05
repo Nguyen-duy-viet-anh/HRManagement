@@ -83,17 +83,16 @@ class LunchController extends Controller
 
         // Mặc định: VNPay
         // Log: Bắt đầu thanh toán
-        VnpayTransactionLog::logEvent(VnpayTransactionLog::EVENT_PAYMENT_INITIATED, [
+        VnpayTransactionLog::create([
             'user_id' => Auth::id(),
             'order_id' => $order->id,
+            'event_type' => 'payment_created',
             'vnp_amount' => $request->price_level * 100,
-            'session_id' => $sessionId,
+            'status' => 'pending',
             'description' => "Người dùng " . Auth::user()->name . " bắt đầu thanh toán đơn hàng #{$order->id} với số tiền " . number_format($request->price_level) . "đ",
-            'ip_address' => $request->ip(),
             'raw_data' => [
                 'price_level' => $request->price_level,
                 'payment_method' => $request->payment_method,
-                'user_agent' => $request->userAgent(),
             ],
         ]);
 
@@ -216,13 +215,13 @@ class LunchController extends Controller
         }
 
         // Log: Thanh toán lại
-        VnpayTransactionLog::logEvent(VnpayTransactionLog::EVENT_PAYMENT_INITIATED, [
+        VnpayTransactionLog::create([
             'user_id' => Auth::id(),
             'order_id' => $order->id,
+            'event_type' => 'payment_created',
             'vnp_amount' => $order->price * 100,
-            'session_id' => $sessionId,
+            'status' => 'pending',
             'description' => "Người dùng " . Auth::user()->name . " thanh toán lại đơn hàng #{$order->id}",
-            'ip_address' => request()->ip(),
             'raw_data' => ['action' => 'repay', 'original_status' => $order->status],
         ]);
 
@@ -462,12 +461,12 @@ class LunchController extends Controller
         ]);
 
         // Log vào database
-        VnpayTransactionLog::logEvent(VnpayTransactionLog::EVENT_ORDER_UPDATED, [
+        VnpayTransactionLog::create([
             'user_id' => $order->user_id,
             'order_id' => $order->id,
+            'event_type' => 'order_updated',
             'status' => $request->status,
             'description' => "Admin " . Auth::user()->name . " đã cập nhật đơn hàng #{$order->id} từ '{$oldStatus}' thành '{$request->status}'",
-            'ip_address' => $request->ip(),
             'raw_data' => [
                 'admin_id' => Auth::id(),
                 'admin_name' => Auth::user()->name,

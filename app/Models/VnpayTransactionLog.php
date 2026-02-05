@@ -4,60 +4,70 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * =========================================
+ * MODEL LOG GIAO DỊCH VNPAY
+ * =========================================
+ * 
+ * Lưu lại toàn bộ quá trình thanh toán:
+ * - Khởi tạo giao dịch
+ * - User quay về (return)
+ * - Nhận IPN từ VNPay
+ * - Kết luận cuối cùng
+ */
 class VnpayTransactionLog extends Model
 {
+    // Cho phép insert tất cả các field
     protected $guarded = [];
 
+    // Tự động convert raw_data từ JSON sang array
     protected $casts = [
         'raw_data' => 'array',
     ];
 
-    // Các loại event
-    const EVENT_PAYMENT_INITIATED = 'payment_initiated';
-    const EVENT_REDIRECT_TO_VNPAY = 'redirect_to_vnpay';
-    const EVENT_VNPAY_RETURN = 'vnpay_return';
-    const EVENT_IPN_RECEIVED = 'ipn_received';
-    const EVENT_CHECKSUM_FAILED = 'checksum_failed';
-    const EVENT_ORDER_UPDATED = 'order_updated';
+    // =========================================
+    // QUAN HỆ VỚI CÁC MODEL KHÁC
+    // =========================================
 
+    /**
+     * Lấy thông tin người dùng
+     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Lấy thông tin đơn hàng
+     */
     public function order()
     {
         return $this->belongsTo(LunchOrder::class, 'order_id');
     }
 
+    // =========================================
+    // CÁC HÀM LẤY TEXT HIỂN THỊ
+    // =========================================
+
     /**
-     * Lấy trạng thái dạng text tiếng Việt
+     * Lấy tên sự kiện tiếng Việt
      */
-    public function getStatusTextAttribute()
+    public function getEventNameAttribute()
     {
-        return match($this->status) {
-            'success' => 'Thành công',
-            'failed' => 'Thất bại',
-            'pending' => 'Đang xử lý',
-            default => 'Không xác định',
-        };
+        $names = [
+            'payment_created' => 'Khởi tạo thanh toán',
+            'return_received' => 'User quay về từ VNPay',
+            'ipn_received' => 'Nhận IPN từ VNPay',
+            'ipn_checksum_failed' => 'Lỗi chữ ký',
+            'ipn_amount_mismatch' => 'Số tiền không khớp',
+            'conclusion' => 'Kết luận',
+        ];
+        
+        return $names[$this->event_type] ?? $this->event_type;
     }
 
     /**
-     * Lấy màu badge theo trạng thái
-     */
-    public function getStatusColorAttribute()
-    {
-        return match($this->status) {
-            'success' => 'success',
-            'failed' => 'danger',
-            'pending' => 'warning',
-            default => 'secondary',
-        };
-    }
-
-    /**
-     * Lấy số tiền thực (chia 100)
+     * Lấy số tiền thực (VNPay tính đơn vị x100)
      */
     public function getRealAmountAttribute()
     {
@@ -65,94 +75,42 @@ class VnpayTransactionLog extends Model
     }
 
     /**
-     * Lấy icon theo loại event
+     * Lấy màu theo trạng thái
      */
-    public function getEventIconAttribute()
+    public function getStatusColorAttribute()
     {
-        return match($this->event_type) {
-            self::EVENT_PAYMENT_INITIATED => '🛒',
-            self::EVENT_REDIRECT_TO_VNPAY => '🔗',
-            self::EVENT_VNPAY_RETURN => '📥',
-            self::EVENT_IPN_RECEIVED => '🔔',
-            self::EVENT_CHECKSUM_FAILED => '❌',
-            self::EVENT_ORDER_UPDATED => '✅',
-            default => '📋',
-        };
+        $colors = [
+            'success' => 'success',  // Xanh lá
+            'failed' => 'danger',    // Đỏ
+            'pending' => 'warning',  // Vàng
+            'info' => 'primary',     // Xanh dương
+        ];
+        
+        return $colors[$this->status] ?? 'secondary';
     }
 
     /**
-     * Lấy tên event tiếng Việt
-     */
-    public function getEventNameAttribute()
-    {
-        return match($this->event_type) {
-            self::EVENT_PAYMENT_INITIATED => 'Bắt đầu thanh toán',
-            self::EVENT_REDIRECT_TO_VNPAY => 'Chuyển hướng đến VNPay',
-            self::EVENT_VNPAY_RETURN => 'VNPay trả về kết quả',
-            self::EVENT_IPN_RECEIVED => 'IPN từ VNPay (Server)',
-            self::EVENT_CHECKSUM_FAILED => 'Lỗi xác thực chữ ký',
-            self::EVENT_ORDER_UPDATED => 'Cập nhật đơn hàng',
-            default => 'Sự kiện khác',
-        };
-    }
-
-    /**
-     * Lấy màu event
-     */
-    public function getEventColorAttribute()
-    {
-        return match($this->event_type) {
-            self::EVENT_PAYMENT_INITIATED => 'info',
-            self::EVENT_REDIRECT_TO_VNPAY => 'primary',
-            self::EVENT_VNPAY_RETURN => 'warning',
-            self::EVENT_IPN_RECEIVED => 'dark',
-            self::EVENT_CHECKSUM_FAILED => 'danger',
-            self::EVENT_ORDER_UPDATED => 'success',
-            default => 'secondary',
-        };
-    }
-
-    /**
-     * Lấy tên hiển thị của event (dùng chung cho payment-logs view)
-     */
-    public function getEventDisplayAttribute()
-    {
-        return $this->event_name; // event_name đã được định nghĩa ở trên
-    }
-
-    /**
-     * Mô tả mã phản hồi VNPay
+     * Giải thích mã lỗi VNPay
      */
     public function getResponseDescriptionAttribute()
     {
         $codes = [
-            '00' => 'Giao dịch thành công',
-            '07' => 'Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường)',
-            '09' => 'Thẻ/Tài khoản chưa đăng ký dịch vụ InternetBanking',
-            '10' => 'Xác thực thông tin thẻ/tài khoản không đúng quá 3 lần',
-            '11' => 'Đã hết hạn chờ thanh toán',
-            '12' => 'Thẻ/Tài khoản bị khóa',
-            '13' => 'Nhập sai mật khẩu xác thực giao dịch (OTP)',
-            '24' => 'Khách hàng hủy giao dịch',
-            '51' => 'Tài khoản không đủ số dư để thực hiện giao dịch',
-            '65' => 'Tài khoản đã vượt quá hạn mức giao dịch trong ngày',
-            '75' => 'Ngân hàng thanh toán đang bảo trì',
-            '79' => 'Nhập sai mật khẩu thanh toán quá số lần quy định',
+            '00' => 'Thành công',
+            '07' => 'Thành công (cần kiểm tra)',
+            '09' => 'Chưa đăng ký Internet Banking',
+            '10' => 'Sai thông tin thẻ quá 3 lần',
+            '11' => 'Hết thời gian thanh toán',
+            '12' => 'Thẻ bị khóa',
+            '13' => 'Sai mã OTP',
+            '24' => 'Khách hủy giao dịch',
+            '51' => 'Không đủ số dư',
+            '65' => 'Vượt hạn mức ngày',
+            '75' => 'Ngân hàng bảo trì',
+            '79' => 'Sai mật khẩu quá nhiều lần',
             '99' => 'Lỗi không xác định',
         ];
 
-        return $codes[$this->vnp_response_code] ?? 'Mã lỗi: ' . $this->vnp_response_code;
-    }
-
-    /**
-     * Helper method để tạo log
-     */
-    public static function logEvent($eventType, $data = [])
-    {
-        return self::create(array_merge([
-            'event_type' => $eventType,
-            'status' => $data['status'] ?? 'pending',
-        ], $data));
+        return $codes[$this->vnp_response_code] ?? 'Mã: ' . $this->vnp_response_code;
     }
 }
 

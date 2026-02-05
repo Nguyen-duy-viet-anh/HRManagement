@@ -7,7 +7,7 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Cấu hình mệnh giá phiếu ăn</h5>
-                    <a href="{{ route('lunch.index') }}" class="btn btn-sm btn-secondary">Quay lại</a>
+                    {{-- <a href="{{ route('lunch.index') }}" class="btn btn-sm btn-secondary">Quay lại</a> --}}
                 </div>
                 <div class="card-body">
                     @if(session('success'))
@@ -37,7 +37,7 @@
                         <tbody>
                             @foreach($prices as $price)
                             <tr>
-                                <td class="fw-bold">{{ number_format($price->price) }} đ</td>
+                                <td class="fw-bold">{{ number_format($price->price) }} VNĐ</td>
                                 <td class="text-center">
                                     <form action="{{ route('lunch.delete_price', $price->id) }}" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa mức giá này?');">
                                         @csrf

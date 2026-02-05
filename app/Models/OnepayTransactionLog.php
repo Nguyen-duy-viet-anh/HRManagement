@@ -79,12 +79,12 @@ class OnepayTransactionLog extends Model
      */
     public function getStatusTextAttribute(): string
     {
-        return match($this->status) {
-            'success' => 'Thành công',
-            'failed'  => 'Thất bại',
-            'pending' => 'Đang xử lý',
-            default   => 'Không xác định',
-        };
+        switch ($this->status) {
+            case 'success': return 'Thành công';
+            case 'failed': return 'Thất bại';
+            case 'pending': return 'Đang xử lý';
+            default: return 'Không xác định';
+        }
     }
 
     /**
@@ -94,12 +94,12 @@ class OnepayTransactionLog extends Model
      */
     public function getStatusColorAttribute(): string
     {
-        return match($this->status) {
-            'success' => 'green',
-            'failed'  => 'red',
-            'pending' => 'yellow',
-            default   => 'gray',
-        };
+        switch ($this->status) {
+            case 'success': return 'green';
+            case 'failed': return 'red';
+            case 'pending': return 'yellow';
+            default: return 'gray';
+        }
     }
 
     /**
@@ -109,15 +109,15 @@ class OnepayTransactionLog extends Model
      */
     public function getEventTextAttribute(): string
     {
-        return match($this->event) {
-            self::EVENT_PAYMENT_INITIATED  => 'Khởi tạo thanh toán',
-            self::EVENT_REDIRECT_TO_ONEPAY => 'Chuyển hướng đến OnePay',
-            self::EVENT_ONEPAY_RETURN      => 'Nhận kết quả từ OnePay',
-            self::EVENT_IPN_RECEIVED       => 'Nhận thông báo IPN',
-            self::EVENT_CHECKSUM_FAILED    => 'Lỗi xác thực chữ ký',
-            self::EVENT_ORDER_UPDATED      => 'Cập nhật đơn hàng',
-            default                        => $this->event,
-        };
+        switch ($this->event) {
+            case self::EVENT_PAYMENT_INITIATED: return 'Khởi tạo thanh toán';
+            case self::EVENT_REDIRECT_TO_ONEPAY: return 'Chuyển hướng đến OnePay';
+            case self::EVENT_ONEPAY_RETURN: return 'Nhận kết quả từ OnePay';
+            case self::EVENT_IPN_RECEIVED: return 'Nhận thông báo IPN';
+            case self::EVENT_CHECKSUM_FAILED: return 'Lỗi xác thực chữ ký';
+            case self::EVENT_ORDER_UPDATED: return 'Cập nhật đơn hàng';
+            default: return $this->event;
+        }
     }
 
     /**
@@ -186,7 +186,7 @@ class OnepayTransactionLog extends Model
      * @return self
      */
     public static function logEvent(
-        string $userId,
+        ?string $userId,
         ?int $orderId,
         string $event,
         string $status = 'pending',
@@ -207,5 +207,100 @@ class OnepayTransactionLog extends Model
             'message'       => $message,
             'raw_data'      => $rawData,
         ]);
+    }
+
+    // ========================================
+    // MAPPING MÃ PHẢN HỒI ONEPAY → TIẾNG VIỆT
+    // ========================================
+
+    /**
+     * Mapping mã phản hồi OnePay sang mô tả tiếng Việt dễ hiểu
+     * Admin không cần hiểu kỹ thuật, chỉ cần đọc là biết vấn đề
+     */
+    public static function getResponseCodeMapping(): array
+    {
+        return [
+            // === THÀNH CÔNG ===
+            '0'  => ['status' => 'success', 'text' => '✅ Thanh toán thành công', 'color' => 'success', 'action' => 'Đơn hàng đã được thanh toán'],
+            
+            // === LỖI TỪ KHÁCH HÀNG ===
+            '1'  => ['status' => 'failed', 'text' => '❌ Ngân hàng từ chối giao dịch', 'color' => 'danger', 'action' => 'Liên hệ ngân hàng để biết lý do'],
+            '3'  => ['status' => 'failed', 'text' => '❌ Mã đơn vị không hợp lệ', 'color' => 'danger', 'action' => 'Kiểm tra cấu hình Merchant ID'],
+            '4'  => ['status' => 'failed', 'text' => '❌ Access code không hợp lệ', 'color' => 'danger', 'action' => 'Kiểm tra cấu hình Access Code'],
+            '5'  => ['status' => 'failed', 'text' => '❌ Số tiền không hợp lệ', 'color' => 'danger', 'action' => 'Kiểm tra số tiền đơn hàng'],
+            '6'  => ['status' => 'failed', 'text' => '❌ Loại tiền tệ không hợp lệ', 'color' => 'danger', 'action' => 'Chỉ hỗ trợ VND'],
+            '7'  => ['status' => 'failed', 'text' => '❌ Lỗi không xác định từ ngân hàng', 'color' => 'danger', 'action' => 'Thử lại hoặc chọn ngân hàng khác'],
+            '8'  => ['status' => 'failed', 'text' => '❌ Lỗi định dạng dữ liệu', 'color' => 'danger', 'action' => 'Liên hệ kỹ thuật'],
+            '9'  => ['status' => 'failed', 'text' => '❌ Dữ liệu bị lỗi', 'color' => 'danger', 'action' => 'Thử lại giao dịch'],
+            
+            // === KHÁCH HÀNG HỦY / TIMEOUT ===
+            '99' => ['status' => 'pending', 'text' => '⏸️ Khách hàng hủy giao dịch', 'color' => 'warning', 'action' => 'Chờ khách hàng thanh toán lại'],
+            'B'  => ['status' => 'pending', 'text' => '⏸️ Xác thực 3D-Secure thất bại', 'color' => 'warning', 'action' => 'Khách cần xác thực lại với ngân hàng'],
+            'F'  => ['status' => 'pending', 'text' => '⏸️ Xác thực 3D-Secure thất bại', 'color' => 'warning', 'action' => 'Khách cần xác thực lại với ngân hàng'],
+            'E'  => ['status' => 'failed', 'text' => '❌ Lỗi kết nối CSC', 'color' => 'danger', 'action' => 'Thử lại sau ít phút'],
+            'Z'  => ['status' => 'failed', 'text' => '❌ Lỗi kết nối MPI', 'color' => 'danger', 'action' => 'Thử lại sau ít phút'],
+            
+            // === LỖI HỆ THỐNG ===
+            '2'  => ['status' => 'failed', 'text' => '❌ Ngân hàng đang bảo trì', 'color' => 'danger', 'action' => 'Chờ ngân hàng hoạt động lại'],
+            
+            // === MẶC ĐỊNH ===
+            'default' => ['status' => 'failed', 'text' => '❓ Mã lỗi không xác định', 'color' => 'secondary', 'action' => 'Liên hệ kỹ thuật để kiểm tra'],
+        ];
+    }
+
+    /**
+     * Lấy mô tả response code tiếng Việt
+     */
+    public function getResponseDescriptionAttribute(): string
+    {
+        $mapping = self::getResponseCodeMapping();
+        $code = $this->response_code ?? 'default';
+        
+        return $mapping[$code]['text'] ?? $mapping['default']['text'];
+    }
+
+    /**
+     * Lấy hành động cần làm dựa trên response code
+     */
+    public function getActionRequiredAttribute(): string
+    {
+        $mapping = self::getResponseCodeMapping();
+        $code = $this->response_code ?? 'default';
+        
+        return $mapping[$code]['action'] ?? $mapping['default']['action'];
+    }
+
+    /**
+     * Lấy màu badge theo response code
+     */
+    public function getResponseColorAttribute(): string
+    {
+        $mapping = self::getResponseCodeMapping();
+        $code = $this->response_code ?? 'default';
+        
+        return $mapping[$code]['color'] ?? $mapping['default']['color'];
+    }
+
+    /**
+     * Lấy icon theo loại event
+     */
+    public function getEventIconAttribute(): string
+    {
+        switch ($this->event) {
+            case self::EVENT_PAYMENT_INITIATED:
+                return '🛒';
+            case self::EVENT_REDIRECT_TO_ONEPAY:
+                return '🔗';
+            case self::EVENT_ONEPAY_RETURN:
+                return '📥';
+            case self::EVENT_IPN_RECEIVED:
+                return '🔔';
+            case self::EVENT_CHECKSUM_FAILED:
+                return '❌';
+            case self::EVENT_ORDER_UPDATED:
+                return '✅';
+            default:
+                return '📋';
+        }
     }
 }
