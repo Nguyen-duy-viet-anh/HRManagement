@@ -88,7 +88,36 @@
             </div>
 
             <div class="d-flex justify-content-center mt-4">
-                {{ $colleagues->links('pagination::bootstrap-5') }}
+            {{-- ...existing code... --}}
+        </div>
+        @if($colleagues->hasPages())
+            <nav class="d-flex justify-content-center mt-3">
+                <ul class="pagination">
+                    <li class="page-item{{ $colleagues->onFirstPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $colleagues->url(1) }}" tabindex="-1">&laquo;</a>
+                    </li>
+                    <li class="page-item{{ $colleagues->onFirstPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $colleagues->previousPageUrl() }}" tabindex="-1">&lsaquo;</a>
+                    </li>
+                    @php
+                        $window = 2;
+                        $start = max(1, $colleagues->currentPage() - $window);
+                        $end = min($colleagues->lastPage(), $colleagues->currentPage() + $window);
+                    @endphp
+                    @for ($page = $start; $page <= $end; $page++)
+                        <li class="page-item{{ $page == $colleagues->currentPage() ? ' active' : '' }}">
+                            <a class="page-link" href="{{ $colleagues->url($page) }}">{{ $page }}</a>
+                        </li>
+                    @endfor
+                    <li class="page-item{{ $colleagues->currentPage() == $colleagues->lastPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $colleagues->nextPageUrl() }}">&rsaquo;</a>
+                    </li>
+                    <li class="page-item{{ $colleagues->currentPage() == $colleagues->lastPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $colleagues->url($colleagues->lastPage()) }}">&raquo;</a>
+                    </li>
+                </ul>
+            </nav>
+        @endif
             </div>
 
             @else

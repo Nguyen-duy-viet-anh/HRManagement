@@ -95,7 +95,14 @@
                 
                 <div class="d-flex justify-content-center mt-4 pb-3">
                     @if(isset($users) && $users->hasPages())
-                        {{ $users->appends(request()->query())->links('pagination::bootstrap-5') }}
+                    {{-- ...existing code... --}}
+                </tbody>
+            </table>
+            @if($users->hasPages())
+                <div class="d-flex justify-content-center mt-3">
+                    {{ $users->appends(request()->query())->links('vendor.pagination.custom-bootstrap') }}
+                </div>
+            @endif
                     @endif
                 </div>
             </div>

@@ -1,11 +1,11 @@
 @extends('layout')
 
 @section('content')
-<div class="container mt-4">
+<div class="w-100 p-0 m-0 mt-4" style="background:transparent;">
     <h3 class="fw-bold text-primary mb-4 text-uppercase">Nhật Ký Mua Hàng</h3>
 
-    <div class="card shadow-sm mb-4">
-        <div class="card-body bg-light">
+    <div class="mb-4">
+        <div class="bg-light p-3 rounded-3">
             <form action="{{ route('lunch.stats') }}" method="GET" class="row g-2 align-items-end">
                 <div class="col-md-2">
                     <label class="form-label fw-bold">Ngày:</label>
@@ -33,7 +33,7 @@
                 <div class="col-md-2">
                     <label class="form-label fw-bold">Năm:</label>
                     <select name="year" class="form-select">
-                        @for($y=2024; $y<=2030; $y++)
+                        @for($y=2026; $y<=2030; $y++)
                             <option value="{{ $y }}" {{ $y == $year ? 'selected' : '' }}>
                                 {{ $y }}
                             </option>
@@ -56,18 +56,18 @@
         </div>
     </div>
 
-    <div class="card shadow">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+    <div class="w-100">
+        <div class="bg-dark text-white d-flex justify-content-between align-items-center p-3 rounded-top-3">
             <h6 class="m-0">Danh sách giao dịch</h6>
             <div>
                 <a href="{{ route('lunch.all-logs') }}" class="btn btn-outline-light btn-sm me-2">
-                    Xem tất cả Log VNPay
+                    Xem tất cả Log
                 </a>
                 <span class="badge bg-light text-dark">Tìm thấy: {{ $orders->total() }} đơn</span>
             </div>
         </div>
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover mb-0 align-middle">
+        <div class="table-responsive w-100" style="min-width:1200px;">
+            <table class="table table-bordered table-hover mb-0 align-middle" style="min-width:1200px;">
                 <thead class="table-light">
                     <tr>
                         <th class="text-center" style="width: 50px">#</th>
@@ -108,7 +108,12 @@
         </div>
     
         <div class="p-3">
-            {{ $orders->appends(['day' => $day, 'month' => $month, 'year' => $year])->links() }}
+            @if($orders->hasPages())
+                <div class="d-flex justify-content-center mt-3">
+                    {{ $orders->appends(request()->query())->links('vendor.pagination.custom-bootstrap') }}
+                </div>
+            @endif
+        </div>
         </div>
     </div>
 </div>

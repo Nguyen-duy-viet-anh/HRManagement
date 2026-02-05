@@ -67,7 +67,10 @@
                         <div class="col-6">
                             <div class="card payment-option" data-gateway="onepay" onclick="selectGateway('onepay')">
                                 <div class="card-body text-center py-3">
-                                    <img src="https://onepay-bucket.s3-sa-east-1.amazonaws.com/files/system_config/logos/OnePay%2BNovo.png" 
+                                    {{-- <img src="https://s-vnba-cdn.aicms.vn/vnba-media/23/8/17/onepay-logo_64de353dc9056.jpg"  --}}
+                                    <img src="https://lh4.googleusercontent.com/proxy/7txqswoQt1UA8wHUQlo5S46oOJBwZjq9M4tIDBtwsq9snV-TptXpCiw0_FY0uIe9ijYhfzF_AOe6iK_bMdO8hEGz98K-8aMO4JU1XSU" 
+                                    {{-- <img src="https://onepay-bucket.s3-sa-east-1.amazonaws.com/files/system_config/logos/OnePay%2BNovo.png"  --}}
+
                                          alt="OnePay" class="img-fluid mb-2" style="max-height: 40px;">
                                     <div class="small fw-semibold">OnePay</div>
                                     <div class="text-muted" style="font-size: 11px;">Thẻ nội địa</div>
@@ -125,7 +128,8 @@
                                             </li>
                                             <li>
                                                 <a class="dropdown-item" href="{{ route('lunch.repay', ['id' => $order->id, 'gateway' => 'onepay']) }}">
-                                                        <img src="https://onepay-bucket.s3-sa-east-1.amazonaws.com/files/system_config/logos/OnePay%2BNovo.png" 
+                                                        {{-- <img src="https://onepay-bucket.s3-sa-east-1.amazonaws.com/files/system_config/logos/OnePay%2BNovo.png"  --}}
+                                                        <img src="https://lh4.googleusercontent.com/proxy/7txqswoQt1UA8wHUQlo5S46oOJBwZjq9M4tIDBtwsq9snV-TptXpCiw0_FY0uIe9ijYhfzF_AOe6iK_bMdO8hEGz98K-8aMO4JU1XSU" 
 
                                                          alt="OnePay" style="height: 20px;" class="me-2">
                                                     OnePay
@@ -150,7 +154,36 @@
             
             {{-- Phân trang --}}
             <div class="mt-3">
-                {{ $myOrders->links() }}
+            {{-- ...existing code... --}}
+        </div>
+        @if($myOrders->hasPages())
+            <nav class="d-flex justify-content-center mt-3">
+                <ul class="pagination">
+                    <li class="page-item{{ $myOrders->onFirstPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $myOrders->url(1) }}" tabindex="-1">&laquo;</a>
+                    </li>
+                    <li class="page-item{{ $myOrders->onFirstPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $myOrders->previousPageUrl() }}" tabindex="-1">&lsaquo;</a>
+                    </li>
+                    @php
+                        $window = 2;
+                        $start = max(1, $myOrders->currentPage() - $window);
+                        $end = min($myOrders->lastPage(), $myOrders->currentPage() + $window);
+                    @endphp
+                    @for ($page = $start; $page <= $end; $page++)
+                        <li class="page-item{{ $page == $myOrders->currentPage() ? ' active' : '' }}">
+                            <a class="page-link" href="{{ $myOrders->url($page) }}">{{ $page }}</a>
+                        </li>
+                    @endfor
+                    <li class="page-item{{ $myOrders->currentPage() == $myOrders->lastPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $myOrders->nextPageUrl() }}">&rsaquo;</a>
+                    </li>
+                    <li class="page-item{{ $myOrders->currentPage() == $myOrders->lastPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $myOrders->url($myOrders->lastPage()) }}">&raquo;</a>
+                    </li>
+                </ul>
+            </nav>
+        @endif
             </div>
         </div>
     </div>

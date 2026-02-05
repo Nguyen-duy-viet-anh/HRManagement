@@ -130,15 +130,8 @@
     
                 @if(isset($users) && $users->hasPages())
                     <div class="d-flex justify-content-center mt-4 pb-5">
-                    @if(isset($users) && $users->hasPages())
-                        {{ $users->appends([
-                            'date' => $date, 
-                            'company_id' => $company_id,
-                            
-                            'search_name' => $search_name ?? ''
-                        ])->links('pagination::bootstrap-5') }}
-                    @endif
-                </div>
+                        {{ $users->appends(request()->query())->links('pagination::bootstrap-5') }}
+                    </div>
                 @endif
             </form>
             @else

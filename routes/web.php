@@ -85,8 +85,8 @@ Route::middleware('auth')->group(function () {
         // Thống kê đặt cơm trưa
         Route::get('/lunch/stats', [LunchController::class, 'stats'])->name('lunch.stats');
         Route::get('/lunch/logs/{userId}', [LunchController::class, 'userLogs'])->name('lunch.user-logs');
-Route::get('/lunch/all-logs', [LunchController::class, 'allLogs'])->name('lunch.all-logs');
-Route::post('/lunch/update-order/{orderId}', [LunchController::class, 'updateOrderStatus'])->name('lunch.update-order');
+        Route::get('/lunch/all-logs', [LunchController::class, 'allLogs'])->name('lunch.all-logs');
+        Route::post('/lunch/update-order/{orderId}', [LunchController::class, 'updateOrderStatus'])->name('lunch.update-order');
     });
 
     // ==========================================================

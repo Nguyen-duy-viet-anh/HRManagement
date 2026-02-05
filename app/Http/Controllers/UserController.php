@@ -228,7 +228,7 @@ class UserController extends Controller
             }
         }
 
-        return redirect()->route('users.index')->with('success', 'Cập nhật thành công.');
+        return redirect()->route('users.edit', $targetUser->id)->with('success', 'Cập nhật thành công.');
     }
 
     // 6. XÓA USER

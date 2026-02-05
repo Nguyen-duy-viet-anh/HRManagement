@@ -39,8 +39,8 @@
         <div class="row g-0">
             <div class="col-md-4 border-end border-light p-4">
                 <div class="d-flex align-items-center">
-                    <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3 text-primary">
-                        <i class="bi bi-building fs-4"></i>
+                    <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #eef2ff 0%, #ddd6fe 100%); display: flex; align-items: center; justify-content: center; margin-right: 16px;">
+                        <i class="bi bi-building" style="font-size: 24px; color: #6366f1;"></i>
                     </div>
                     <div>
                         <small class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Đơn vị công tác</small>
@@ -51,8 +51,8 @@
 
             <div class="col-md-4 border-end border-light p-4">
                 <div class="d-flex align-items-center">
-                    <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3 text-warning">
-                        <i class="bi bi-calendar-check fs-4"></i>
+                    <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%); display: flex; align-items: center; justify-content: center; margin-right: 16px;">
+                        <i class="bi bi-calendar-check" style="font-size: 24px; color: #f59e0b;"></i>
                     </div>
                     <div>
                         <small class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Công tháng {{ date('m/Y') }}</small>
@@ -63,12 +63,12 @@
             
             <div class="col-md-4 p-4">
                 <div class="d-flex align-items-center">
-                    <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3 text-success">
-                        <i class="bi bi-cash-stack fs-4"></i>
+                    <div style="width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%); display: flex; align-items: center; justify-content: center; margin-right: 16px;">
+                        <i class="bi bi-cash-stack" style="font-size: 24px; color: #10b981;"></i>
                     </div>
                     <div>
                         <small class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">Lương cơ bản</small>
-                        <h6 class="fw-bold text-success mb-0 mt-1">{{ number_format(Auth::user()->base_salary) }} VNĐ</h6>
+                        <h6 class="fw-bold mb-0 mt-1" style="color: #10b981;">{{ number_format(Auth::user()->base_salary) }} VNĐ</h6>
                     </div>
                 </div>
             </div>

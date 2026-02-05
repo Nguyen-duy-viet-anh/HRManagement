@@ -72,7 +72,36 @@
                 @endforeach
             </tbody>
                 </table>
-                <div class="p-3">{{ $attendances->links() }}</div>
+            {{-- ...existing code... --}}
+        </div>
+        @if($attendances->hasPages())
+            <nav class="d-flex justify-content-center mt-3">
+                <ul class="pagination">
+                    <li class="page-item{{ $attendances->onFirstPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $attendances->url(1) }}" tabindex="-1">&laquo;</a>
+                    </li>
+                    <li class="page-item{{ $attendances->onFirstPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $attendances->previousPageUrl() }}" tabindex="-1">&lsaquo;</a>
+                    </li>
+                    @php
+                        $window = 2;
+                        $start = max(1, $attendances->currentPage() - $window);
+                        $end = min($attendances->lastPage(), $attendances->currentPage() + $window);
+                    @endphp
+                    @for ($page = $start; $page <= $end; $page++)
+                        <li class="page-item{{ $page == $attendances->currentPage() ? ' active' : '' }}">
+                            <a class="page-link" href="{{ $attendances->url($page) }}">{{ $page }}</a>
+                        </li>
+                    @endfor
+                    <li class="page-item{{ $attendances->currentPage() == $attendances->lastPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $attendances->nextPageUrl() }}">&rsaquo;</a>
+                    </li>
+                    <li class="page-item{{ $attendances->currentPage() == $attendances->lastPage() ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ $attendances->url($attendances->lastPage()) }}">&raquo;</a>
+                    </li>
+                </ul>
+            </nav>
+        @endif
             @else
                 <div class="p-5 text-center text-muted">Chưa có dữ liệu chấm công.</div>
             @endif

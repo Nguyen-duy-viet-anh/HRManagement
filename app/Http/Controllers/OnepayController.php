@@ -130,145 +130,370 @@ class OnepayController extends Controller
     }
 
     // ========================================
-    // XỬ LÝ IPN (INSTANT PAYMENT NOTIFICATION)
+    // XỬ LÝ IPN (Server-to-Server) - NGUỒN CHÍNH ĐỂ CẬP NHẬT ORDER
     // ========================================
 
     /**
      * Xử lý IPN từ OnePay (Server-to-Server)
      * 
-     * QUAN TRỌNG: Endpoint này KHÔNG yêu cầu authentication
-     * vì được gọi từ server OnePay
+     * ĐÂY LÀ NGUỒN CHÍNH để cập nhật đơn hàng vì:
+     * - Server-to-server: Không phụ thuộc browser của user
+     * - Được ký bằng secure hash: Đảm bảo dữ liệu không bị giả mạo  
+     * - Retry mechanism: OnePay sẽ gửi lại nếu không nhận được response
+     * 
+     * Response codes cần trả về cho OnePay:
+     * - responseCode=1: Xử lý thành công (OnePay dừng retry)
+     * - responseCode=0: Lỗi (OnePay sẽ retry)
      * 
      * @param Request $request
      * @return \Illuminate\Http\Response
      */
     public function handleIpn(Request $request)
     {
-        // Lấy tất cả dữ liệu từ request
         $ipnData = $request->all();
+        $txnRef = $ipnData['vpc_MerchTxnRef'] ?? 'UNKNOWN';
+        $responseCode = $ipnData['vpc_TxnResponseCode'] ?? 'N/A';
+        $transactionNo = $ipnData['vpc_TransactionNo'] ?? null;
+        $amount = $ipnData['vpc_Amount'] ?? 0;
         
-        Log::channel('onepay')->info('Nhận IPN từ OnePay', [
-            'ip'   => $request->ip(),
-            'data' => $ipnData,
+        Log::channel('onepay')->info('[ONEPAY IPN] ===== START =====', [
+            'vpc_MerchTxnRef' => $txnRef,
+            'vpc_TxnResponseCode' => $responseCode,
+            'vpc_TransactionNo' => $transactionNo,
+            'vpc_Amount' => $amount,
+            'ip' => $request->ip()
         ]);
 
-        // Xử lý IPN qua service
+        // Phân tích order_id từ txnRef (format: HR{order_id}_{timestamp})
+        $orderId = $this->extractOrderIdFromTxnRef($txnRef);
+        $order = $orderId ? LunchOrder::find($orderId) : null;
+
+        // ========================================
+        // BƯỚC 1: Xác thực chữ ký
+        // ========================================
         $result = $this->onepayService->processIpn($ipnData);
 
-        // Phân tích mã đơn hàng từ txnRef (format: HR{order_id}_{timestamp})
-        $txnRef = $result['order_id'];
-        $orderId = $this->extractOrderIdFromTxnRef($txnRef);
+        if (!$result['success']) {
+            // Checksum không hợp lệ - CÓ THỂ GIẢ MẠO
+            Log::channel('onepay')->error('[ONEPAY IPN] Checksum KHÔNG HỢP LỆ - CÓ THỂ GIẢ MẠO!', [
+                'order_id' => $orderId,
+                'ip' => $request->ip()
+            ]);
 
-        if ($orderId) {
-            // Tìm đơn hàng trong database
-            $order = LunchOrder::find($orderId);
-            
             if ($order) {
-                // Ghi log IPN
                 OnepayTransactionLog::logEvent(
                     userId: $order->user_id,
                     orderId: $orderId,
-                    event: $result['success'] 
-                        ? OnepayTransactionLog::EVENT_IPN_RECEIVED 
-                        : OnepayTransactionLog::EVENT_CHECKSUM_FAILED,
-                    status: $result['is_paid'] ? 'success' : 'failed',
+                    event: OnepayTransactionLog::EVENT_CHECKSUM_FAILED,
+                    status: 'failed',
                     txnRef: $txnRef,
                     amount: $order->price,
-                    responseCode: $result['response_code'],
-                    message: $result['message'],
+                    responseCode: $responseCode,
+                    message: '[IPN] CẢNH BÁO: Checksum không hợp lệ - Có thể bị giả mạo!',
                     rawData: $ipnData
                 );
+            }
 
-                // Chỉ cập nhật đơn hàng nếu chữ ký hợp lệ
-                if ($result['success']) {
-                    $this->updateOrderStatus($order, $result);
-                }
+            // Trả về 0 để OnePay biết có lỗi
+            return response("responseCode=0", 200)->header('Content-Type', 'text/plain');
+        }
+
+        Log::channel('onepay')->info('[ONEPAY IPN] Checksum hợp lệ ✓');
+
+        // ========================================
+        // BƯỚC 2: Kiểm tra Order
+        // ========================================
+        if (!$order) {
+            Log::channel('onepay')->error('[ONEPAY IPN] Order không tồn tại', ['order_id' => $orderId]);
+
+            OnepayTransactionLog::logEvent(
+                userId: null,
+                orderId: $orderId,
+                event: OnepayTransactionLog::EVENT_IPN_RECEIVED,
+                status: 'failed',
+                txnRef: $txnRef,
+                amount: (int)$amount / 100,
+                responseCode: $responseCode,
+                message: '[IPN] LỖI: Order không tồn tại',
+                rawData: $ipnData
+            );
+
+            // Vẫn trả 1 vì đây không phải lỗi của OnePay
+            return response("responseCode=1", 200)->header('Content-Type', 'text/plain');
+        }
+
+        // ========================================
+        // BƯỚC 3: Kiểm tra số tiền
+        // ========================================
+        $amountDecimal = (int)$amount / 100;
+        if ($amountDecimal > 0 && $amountDecimal != $order->price) {
+            Log::channel('onepay')->error('[ONEPAY IPN] Số tiền KHÔNG KHỚP', [
+                'order_id' => $orderId,
+                'onepay_amount' => $amountDecimal,
+                'order_price' => $order->price
+            ]);
+
+            OnepayTransactionLog::logEvent(
+                userId: $order->user_id,
+                orderId: $orderId,
+                event: OnepayTransactionLog::EVENT_IPN_RECEIVED,
+                status: 'failed',
+                txnRef: $txnRef,
+                amount: $amountDecimal,
+                responseCode: $responseCode,
+                message: "[IPN] LỖI: Số tiền không khớp (OnePay: {$amountDecimal}, Order: {$order->price})",
+                rawData: $ipnData
+            );
+
+            return response("responseCode=1", 200)->header('Content-Type', 'text/plain');
+        }
+
+        Log::channel('onepay')->info('[ONEPAY IPN] Số tiền hợp lệ ✓');
+
+        // ========================================
+        // BƯỚC 4: Kiểm tra đã xử lý chưa (tránh duplicate)
+        // ========================================
+        if ($order->status === 'paid') {
+            Log::channel('onepay')->info('[ONEPAY IPN] Order đã được xử lý trước đó', ['order_id' => $orderId]);
+
+            OnepayTransactionLog::logEvent(
+                userId: $order->user_id,
+                orderId: $orderId,
+                event: OnepayTransactionLog::EVENT_IPN_RECEIVED,
+                status: 'info',
+                txnRef: $txnRef,
+                amount: $order->price,
+                responseCode: $responseCode,
+                message: '[IPN] Order đã được xử lý trước đó (duplicate IPN)',
+                rawData: $ipnData
+            );
+
+            return response("responseCode=1", 200)->header('Content-Type', 'text/plain');
+        }
+
+        // ========================================
+        // BƯỚC 5: Ghi log IPN
+        // ========================================
+        $isPaid = $result['is_paid'];
+        
+        OnepayTransactionLog::logEvent(
+            userId: $order->user_id,
+            orderId: $orderId,
+            event: OnepayTransactionLog::EVENT_IPN_RECEIVED,
+            status: $isPaid ? 'success' : 'failed',
+            txnRef: $txnRef,
+            amount: $order->price,
+            responseCode: $responseCode,
+            message: "[IPN] OnePay thông báo: " . ($isPaid ? 'THÀNH CÔNG' : 'THẤT BẠI') . " - Mã: {$responseCode} (" . ($result['txn_response'] ?? $result['message']) . ")",
+            rawData: $ipnData
+        );
+
+        // ========================================
+        // BƯỚC 6: Cập nhật Order
+        // ========================================
+        if ($isPaid) {
+            // THANH TOÁN THÀNH CÔNG
+            $order->update([
+                'status' => 'paid',
+                'transaction_code' => $transactionNo
+            ]);
+
+            Log::channel('onepay')->info('[ONEPAY IPN] ✓ THANH TOÁN THÀNH CÔNG', [
+                'order_id' => $order->id,
+                'user_id' => $order->user_id,
+                'amount' => $order->price,
+                'transaction_no' => $transactionNo
+            ]);
+
+            OnepayTransactionLog::logEvent(
+                userId: $order->user_id,
+                orderId: $order->id,
+                event: OnepayTransactionLog::EVENT_ORDER_UPDATED,
+                status: 'success',
+                txnRef: $txnRef,
+                amount: $order->price,
+                message: "[IPN] ✓ Đơn hàng #{$order->id} đã thanh toán thành công - Mã GD: {$transactionNo}"
+            );
+
+        } else {
+            // THANH TOÁN THẤT BẠI
+            // Các mã do user hủy - giữ pending để thanh toán lại
+            $userCancelledCodes = ['99', 'B', 'F'];
+            
+            if (in_array($responseCode, $userCancelledCodes)) {
+                // Giữ pending
+                Log::channel('onepay')->info('[ONEPAY IPN] User hủy/back - Giữ pending', [
+                    'order_id' => $order->id,
+                    'response_code' => $responseCode
+                ]);
+
+                OnepayTransactionLog::logEvent(
+                    userId: $order->user_id,
+                    orderId: $order->id,
+                    event: OnepayTransactionLog::EVENT_ORDER_UPDATED,
+                    status: 'pending',
+                    txnRef: $txnRef,
+                    amount: $order->price,
+                    responseCode: $responseCode,
+                    message: "[IPN] User hủy giao dịch (Mã: {$responseCode}) - Giữ pending để thanh toán lại"
+                );
+            } else {
+                // Lỗi thực sự - đánh dấu failed
+                $order->update(['status' => 'failed']);
+
+                Log::channel('onepay')->warning('[ONEPAY IPN] ✗ THANH TOÁN THẤT BẠI', [
+                    'order_id' => $order->id,
+                    'response_code' => $responseCode,
+                    'message' => $result['message'] ?? ''
+                ]);
+
+                OnepayTransactionLog::logEvent(
+                    userId: $order->user_id,
+                    orderId: $order->id,
+                    event: OnepayTransactionLog::EVENT_ORDER_UPDATED,
+                    status: 'failed',
+                    txnRef: $txnRef,
+                    amount: $order->price,
+                    responseCode: $responseCode,
+                    message: "[IPN] ✗ Đơn hàng #{$order->id} thất bại - Mã: {$responseCode} (" . ($result['txn_response'] ?? $result['message']) . ")"
+                );
             }
         }
 
-        // QUAN TRỌNG: Luôn trả về responseCode=1 nếu xử lý thành công
-        // để OnePay dừng gửi IPN lặp lại
-        // Trả về responseCode=0 nếu chữ ký sai
-        $responseCode = $result['success'] ? '1' : '0';
-        
-        return response("responseCode={$responseCode}", 200)
-            ->header('Content-Type', 'text/plain');
+        Log::channel('onepay')->info('[ONEPAY IPN] ===== END =====');
+
+        // Trả về 1 để OnePay không gửi lại
+        return response("responseCode=1", 200)->header('Content-Type', 'text/plain');
     }
 
     // ========================================
-    // XỬ LÝ RETURN URL (TRANG KẾT QUẢ)
+    // XỬ LÝ RETURN URL (CHỈ HIỂN THỊ KẾT QUẢ - KHÔNG CẬP NHẬT ORDER)
     // ========================================
 
     /**
      * Xử lý Return URL từ OnePay
-     * Hiển thị kết quả thanh toán cho người dùng
+     * 
+     * QUAN TRỌNG: Return URL CHỈ dùng để hiển thị kết quả cho user
+     * Việc cập nhật đơn hàng được xử lý bởi IPN (handleIpn)
+     * 
+     * FALLBACK: Ở môi trường development (localhost), IPN không hoạt động
+     * nên Return URL sẽ verify và cập nhật order nếu checksum hợp lệ.
      * 
      * @param Request $request
      * @return \Illuminate\Http\RedirectResponse|\Illuminate\View\View
      */
     public function handleReturn(Request $request)
     {
-        // Lấy dữ liệu từ query string
         $returnData = $request->all();
+        $txnRef = $returnData['vpc_MerchTxnRef'] ?? 'UNKNOWN';
+        $responseCode = $returnData['vpc_TxnResponseCode'] ?? 'N/A';
+        $transactionNo = $returnData['vpc_TransactionNo'] ?? null;
         
-        Log::channel('onepay')->info('Nhận Return URL từ OnePay', [
-            'data' => $returnData,
+        Log::channel('onepay')->info('[ONEPAY RETURN] User returned from OnePay', [
+            'vpc_MerchTxnRef' => $txnRef,
+            'vpc_TxnResponseCode' => $responseCode,
+            'ip' => $request->ip()
         ]);
 
-        // Xử lý Return qua service
-        $result = $this->onepayService->processReturn($returnData);
-
-        // Phân tích mã đơn hàng
-        $txnRef = $result['order_id'];
+        // Phân tích order_id
         $orderId = $this->extractOrderIdFromTxnRef($txnRef);
+        $order = $orderId ? LunchOrder::find($orderId) : null;
 
-        $order = null;
-        if ($orderId) {
-            $order = LunchOrder::find($orderId);
+        // Log: User quay về từ OnePay
+        if ($order) {
+            OnepayTransactionLog::logEvent(
+                userId: $order->user_id,
+                orderId: $orderId,
+                event: OnepayTransactionLog::EVENT_ONEPAY_RETURN,
+                status: 'info',
+                txnRef: $txnRef,
+                amount: $order->price,
+                responseCode: $responseCode,
+                message: "User quay về từ OnePay - Response: {$responseCode}",
+                rawData: $returnData
+            );
+        }
+
+        if (!$order) {
+            Log::channel('onepay')->error('[ONEPAY RETURN] Order not found', ['order_id' => $orderId]);
+            return redirect()->route('lunch.index')->with('error', 'Không tìm thấy đơn hàng.');
+        }
+
+        // Refresh order để lấy status mới nhất (có thể đã được IPN cập nhật)
+        $order->refresh();
+
+        // Nếu đã paid (IPN đã xử lý), chỉ hiển thị kết quả
+        if ($order->status === 'paid') {
+            return redirect()->route('lunch.index')->with('success', 'Thanh toán thành công!');
+        }
+
+        // ========================================
+        // FALLBACK: Xử lý khi IPN chưa đến (localhost/development)
+        // Verify checksum và cập nhật order nếu response_code = 0 (thành công)
+        // ========================================
+        if ($responseCode === '0' && $order->status !== 'paid') {
+            // Verify checksum
+            $result = $this->onepayService->processIpn($returnData);
             
-            if ($order) {
-                // Ghi log Return
-                OnepayTransactionLog::logEvent(
-                    userId: $order->user_id,
-                    orderId: $orderId,
-                    event: $result['success'] 
-                        ? OnepayTransactionLog::EVENT_ONEPAY_RETURN 
-                        : OnepayTransactionLog::EVENT_CHECKSUM_FAILED,
-                    status: $result['is_paid'] ? 'success' : 'failed',
-                    txnRef: $txnRef,
-                    amount: $order->price,
-                    responseCode: $result['error_code'],
-                    message: $result['display_text'],
-                    rawData: $returnData
-                );
-
-                // Cập nhật trạng thái đơn hàng (nếu chưa được cập nhật bởi IPN)
-                if ($result['success'] && $order->status === 'pending') {
-                    $this->updateOrderStatus($order, $result);
+            if ($result['success'] && $result['is_paid']) {
+                // Verify số tiền
+                $expectedAmount = $order->price * 100; // OnePay amount is in cents
+                $receivedAmount = (int)($returnData['vpc_Amount'] ?? 0);
+                
+                if ($expectedAmount == $receivedAmount) {
+                    // Cập nhật order (fallback khi IPN không hoạt động)
+                    $order->update([
+                        'status' => 'paid',
+                        'payment_method' => 'onepay',
+                        'transaction_code' => $transactionNo
+                    ]);
+                    
+                    Log::channel('onepay')->info('[ONEPAY RETURN] FALLBACK: Cập nhật order từ Return URL', [
+                        'order_id' => $orderId,
+                        'note' => 'IPN chưa đến, đã verify checksum và cập nhật order'
+                    ]);
+                    
+                    // Log order updated
+                    OnepayTransactionLog::logEvent(
+                        userId: $order->user_id,
+                        orderId: $orderId,
+                        event: OnepayTransactionLog::EVENT_ORDER_UPDATED,
+                        status: 'success',
+                        txnRef: $txnRef,
+                        amount: $order->price,
+                        responseCode: $responseCode,
+                        message: '[FALLBACK] Cập nhật đơn hàng từ Return URL (IPN chưa đến)',
+                        rawData: $returnData
+                    );
+                    
+                    return redirect()->route('lunch.index')->with('success', 'Thanh toán thành công!');
+                } else {
+                    Log::channel('onepay')->warning('[ONEPAY RETURN] Số tiền không khớp', [
+                        'expected' => $expectedAmount,
+                        'received' => $receivedAmount
+                    ]);
                 }
+            } else {
+                Log::channel('onepay')->warning('[ONEPAY RETURN] Checksum không hợp lệ', [
+                    'order_id' => $orderId
+                ]);
             }
-        }
-
-        // Trả về view hoặc redirect với kết quả
-        if ($request->wantsJson()) {
-            return response()->json([
-                'success'      => $result['success'],
-                'is_paid'      => $result['is_paid'],
-                'message'      => $result['display_text'],
-                'order_id'     => $orderId,
-                'txn_ref'      => $txnRef,
-                'onepay_txn'   => $result['txn_ref'] ?? null,
-            ]);
-        }
-
-        // Redirect về trang lunch với thông báo
-        if ($result['is_paid']) {
+            
+            // Checksum invalid hoặc amount không khớp - đợi IPN
             return redirect()->route('lunch.index')
-                ->with('success', 'Thanh toán thành công! ' . $result['display_text']);
+                ->with('warning', 'Giao dịch đang được xử lý. Vui lòng đợi trong giây lát.');
         }
 
+        // User hủy hoặc lỗi
+        $userCancelledCodes = ['99', 'B', 'F'];
+        if (in_array($responseCode, $userCancelledCodes)) {
+            return redirect()->route('lunch.index')
+                ->with('warning', 'Giao dịch đã bị hủy. Bạn có thể thanh toán lại.');
+        }
+
+        // Các lỗi khác
         return redirect()->route('lunch.index')
-            ->with('error', 'Thanh toán thất bại: ' . $result['display_text']);
+            ->with('error', 'Thanh toán thất bại. Vui lòng thử lại.');
     }
 
     // ========================================
@@ -292,61 +517,5 @@ class OnepayController extends Controller
         }
         
         return null;
-    }
-
-    /**
-     * Cập nhật trạng thái đơn hàng
-     * 
-     * @param LunchOrder $order
-     * @param array $result
-     */
-    protected function updateOrderStatus(LunchOrder $order, array $result): void
-    {
-        // Các mã lỗi do user hủy/back - giữ pending để thanh toán lại
-        // 99: User hủy giao dịch
-        // B, F: Lỗi xác thực 3D Secure (user có thể thử lại)
-        $userCancelledCodes = ['99', 'B', 'F'];
-        $responseCode = $result['response_code'] ?? $result['error_code'] ?? '';
-        
-        if (!$result['is_paid'] && in_array($responseCode, $userCancelledCodes)) {
-            // Giữ pending - cho phép thanh toán lại
-            Log::channel('onepay')->info("Đơn hàng #{$order->id} - User hủy/back - Giữ pending", [
-                'response_code' => $responseCode,
-            ]);
-            
-            OnepayTransactionLog::logEvent(
-                userId: $order->user_id,
-                orderId: $order->id,
-                event: OnepayTransactionLog::EVENT_ORDER_UPDATED,
-                status: 'pending',
-                txnRef: $order->txn_ref,
-                amount: $order->price,
-                message: "User hủy giao dịch - Giữ pending để thanh toán lại"
-            );
-            
-            return; // Không cập nhật status
-        }
-
-        $newStatus = $result['is_paid'] ? 'paid' : 'failed';
-        
-        $order->update([
-            'status'           => $newStatus,
-            'transaction_code' => $result['txn_ref'] ?? null,
-        ]);
-
-        // Ghi log cập nhật đơn hàng
-        OnepayTransactionLog::logEvent(
-            userId: $order->user_id,
-            orderId: $order->id,
-            event: OnepayTransactionLog::EVENT_ORDER_UPDATED,
-            status: $newStatus === 'paid' ? 'success' : 'failed',
-            txnRef: $order->txn_ref,
-            amount: $order->price,
-            message: "Cập nhật trạng thái đơn hàng: {$newStatus}"
-        );
-
-        Log::channel('onepay')->info("Đã cập nhật đơn hàng #{$order->id}", [
-            'status' => $newStatus,
-        ]);
     }
 }
