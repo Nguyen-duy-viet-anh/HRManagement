@@ -5,82 +5,92 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-
+    // GET /api/users
     public function index(Request $request)
-{
+    {
+        $query = User::with('company')->orderByDesc('id');
 
-    $query = User::with('company')->orderBy('updated_at', 'desc')->orderBy('id', 'desc');
+        if ($request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
 
-    if ($request->search) {
-        $query->where(function ($q) use ($request) {
-            $q->where('name', 'like', '%' . $request->search . '%')
-              ->orWhere('email', 'like', '%' . $request->search . '%');
-        });
+        return apiSuccess(
+            $query->paginate(20),
+            'Danh sách nhân viên'
+        );
     }
-
-    if ($request->company_id) {
-        $query->where('company_id', $request->company_id);
-    }
-
-    return response()->json(
-        $query->paginate(50)
-    );
-}
 
     // GET /api/users/{id}
-    public function show($id)
+    public function show(Request $request)
     {
-        return response()->json(
-            User::with('company')->findOrFail($id)
-        );
+        $request->validate([
+            'id' => 'required|uuid'
+        ]);
+
+        $user = User::with('company')->find($request->id);
+
+        if (!$user) {
+            return apiError('Không tìm thấy nhân viên', 404);
+        }
+
+        return apiSuccess($user, 'Chi tiết nhân viên');
     }
 
     // POST /api/users
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => 'required',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:6',
+            'name'       => 'required|string|max:255',
+            'email'      => 'required|email|unique:users,email',
+            'company_id' => 'required|exists:companies,id',
+            'status'     => 'required|in:0,1',
+            'password' => 'required|string|min:6'
         ]);
+        $data['password'] = bcrypt($data['password']);
+        $user = User::create($data);
 
-        $data['password'] = Hash::make($data['password']);
-
-        return response()->json(
-            User::create($data),
-            201
-        );
+        return apiSuccess($user, 'Tạo nhân viên thành công', 201);
     }
 
     // PUT /api/users/{id}
-    public function update(Request $request, $id)
+    public function update(Request $request)
     {
-        $user = User::findOrFail($id);
-
         $data = $request->validate([
-            'name' => 'sometimes|required',
-            'email' => 'sometimes|required|email|unique:users,email,' . $id,
-            'password' => 'sometimes|min:6',
+            'id'         => 'required|uuid',
+            'name'       => 'sometimes|required|string|max:255',
+            'email'      => 'sometimes|required|email|unique:users,email,' . $request->id,
+            'company_id' => 'sometimes|required|exists:companies,id',
+            'status'     => 'sometimes|required|in:0,1'
         ]);
 
-        if (isset($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
+        $user = User::find($data['id']);
+        if (!$user) {
+            return apiError('Không tìm thấy nhân viên', 404);
         }
 
         $user->update($data);
 
-        return response()->json($user);
+        return apiSuccess($user, 'Cập nhật nhân viên thành công');
     }
 
     // DELETE /api/users/{id}
-    public function destroy($id)
-    {
-        User::findOrFail($id)->delete();
 
-        return response()->json(['message' => 'Deleted']);
+    public function destroy(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|uuid'
+        ]);
+
+        $user = User::find($request->id);
+        if (!$user) {
+            return apiError('Không tìm thấy nhân viên', 404);
+        }
+
+        $user->delete();
+
+        return apiSuccess(null, 'Xóa nhân viên thành công');
     }
 }

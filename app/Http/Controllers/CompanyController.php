@@ -18,7 +18,7 @@ class CompanyController extends Controller
         })
         ->withCount('users') 
         ->orderBy('id', 'asc')
-        ->paginate(10);
+        ->paginate(20);
         
     return view('companies.index', compact('companies', 'search'));
 }

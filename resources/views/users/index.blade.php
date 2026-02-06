@@ -1,4 +1,3 @@
-{{-- filepath: resources/views/users/index.blade.php --}}
 @extends('layout')
 
 @section('content')
@@ -13,41 +12,42 @@
             </a>
         </div>
         <div class="card-body bg-light border-bottom">
-            <form id="user-filter-form" action="{{ route('users.index') }}" method="GET" autocomplete="off">
-                <div class="row g-2 justify-content-end">
-                    @if(Auth::user()->role == 0)
-                    <div class="col-md-3">
-                        <select name="company_id" class="form-select border-primary">
-                            <option value="">-- Tất cả công ty --</option>
-                            @foreach($companies as $cp)
-                                <option value="{{ $cp->id }}" {{ request('company_id') == $cp->id ? 'selected' : '' }}>
-                                    {{ $cp->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    @endif
+    <form action="{{ route('users.index') }}" method="GET">
+        <div class="row g-2 justify-content-end">
+            
+            @if(Auth::user()->role == 0)
+            <div class="col-md-3">
+                <select name="company_id" class="form-select border-primary" onchange="this.form.submit()">
+                    <option value="">-- Tất cả công ty --</option>
+                    @foreach($companies as $cp)
+                        <option value="{{ $cp->id }}" {{ request('company_id') == $cp->id ? 'selected' : '' }}>
+                            {{ $cp->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
 
-                    <div class="col-md-5">
-                        <div class="input-group">
-                            <input type="text" name="search" class="form-control border-primary" 
-                                   placeholder="Tên hoặc email..." 
-                                   value="{{ request('search') }}">
-                            <button class="btn btn-primary" type="submit">
-                                <i class="bi bi-search"></i>
-                            </button>
-                            @if(request('search') || request('company_id'))
-                                <a href="{{ route('users.index') }}" class="btn btn-outline-secondary" title="Xóa tất cả bộ lọc">
-                                    <i class="bi bi-arrow-clockwise"></i>
-                                </a>
-                            @endif
-                        </div>
-                    </div>
+            <div class="col-md-5">
+                <div class="input-group">
+                    <input type="text" name="search" class="form-control border-primary" 
+                           placeholder="Tên hoặc email..." 
+                           value="{{ request('search') }}">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-search"></i>
+                    </button>
+                    
+                    @if(request('search') || request('company_id'))
+                        <a href="{{ route('users.index') }}" class="btn btn-outline-secondary" title="Xóa tất cả bộ lọc">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </a>
+                    @endif
                 </div>
-            </form>
+            </div>
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
+    </form>
+</div>
+        <div class="card-body p-0"> <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
@@ -60,17 +60,94 @@
                             <th class="text-center" style="width: 150px;">Hành động</th>
                         </tr>
                     </thead>
-                    <tbody id="user-table-body">
-                        {{-- dữ liệu --}}
+                    <tbody>
+                        @foreach($users as $user)
+                        <tr>
+                            <td class="text-center fw-bold text-muted">
+                                {{ ($users->currentPage() - 1) * $users->perPage() + $loop->iteration }}
+                            </td>
+                            <td class="text-center">
+                                @php
+                                    // Kiểm tra nếu avatar là một URL (từ Faker) hoặc đường dẫn file (từ Storage)
+                                    $avatarUrl = filter_var($user->avatar, FILTER_VALIDATE_URL) 
+                                        ? $user->avatar 
+                                        : ($user->avatar ? asset('storage/' . $user->avatar) : null);
+                                @endphp
+
+                                @if($avatarUrl)
+                                    <img src="{{ $avatarUrl }}" width="48" height="48" class="rounded-circle shadow-sm border" style="object-fit: cover;">
+                                @else
+                                    <div class="rounded-circle bg-soft-secondary d-flex align-items-center justify-content-center border" style="width: 48px; height: 48px;">
+                                        <i class="bi bi-person text-secondary fs-4"></i>
+                                    </div>
+                                @endif
+                            </td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ $user->name }}</div>
+                                <div class="small text-muted">{{ $user->email }}</div>
+                            </td>
+                            <td>
+                                @if($user->company)
+                                    <span class="text-dark">{{ $user->company->name }}</span>
+                                @else
+                                    <span class="text-muted italic">Tự do</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($user->role == 0) 
+                                    <span class="badge rounded-pill bg-danger px-3">Super Admin</span>
+                                @elseif($user->role == 1) 
+                                    <span class="badge rounded-pill bg-warning text-dark px-3">Quản lý</span>
+                                @else 
+                                    <span class="badge rounded-pill bg-info text-white px-3">Nhân viên</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($user->status == 1) 
+                                    <span class="badge bg-soft-success text-success border border-success px-2">
+                                        <i class="bi bi-circle-fill me-1" style="font-size: 6px;"></i> Hoạt động
+                                    </span>
+                                @else 
+                                    <span class="badge bg-soft-secondary text-secondary border border-secondary px-2">
+                                        Đã nghỉ
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group shadow-sm">
+                                    {{-- [MỚI] Nút Xem lịch sử chấm công --}}
+                                    <a href="{{ route('users.attendance', $user->id) }}" class="btn btn-sm btn-outline-primary" title="Xem lịch sử chấm công">
+                                        <i class="bi bi-calendar-week"></i>
+                                    </a>
+
+                                    {{-- Nút Sửa --}}
+                                    <a href="{{ route('users.edit', $user->id) }}" class="btn btn-sm btn-outline-warning" title="Sửa">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    
+                                    {{-- Nút Xóa --}}
+                                    <form action="{{ route('users.destroy', $user->id) }}" method="POST" 
+                                        onsubmit="return confirm('Bạn có chắc chắn muốn xóa nhân viên này?');" class="d-inline">
+                                        @csrf 
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        @endforeach
                     </tbody>
                 </table>
             </div>
         </div>
+
         <div class="d-flex justify-content-center mt-4">
-            <nav>
-                <ul class="pagination" id="pagination"></ul>
-            </nav>
-        </div>
+    @if(isset($users) && $users->hasPages())
+        {{ $users->appends(request()->query())->links('pagination::bootstrap-5') }}
+    @endif
+</div>
     </div>
 </div>
 
@@ -81,121 +158,4 @@
     .btn-group .btn { padding: 0.25rem 0.6rem; }
     .badge { font-weight: 500; font-size: 0.75rem; }
 </style>
-
-<script>
-const tbody = document.getElementById('user-table-body');
-const pagination = document.getElementById('pagination');
-const form = document.getElementById('user-filter-form');
-
-function fetchUsers(page = 1) {
-    const params = new URLSearchParams(new FormData(form));
-    params.set('page', page);
-
-    fetch(`/api/users?${params}`)
-        .then(r => r.json())
-        .then(res => {
-            renderTable(res);
-            renderPagination(res);
-        });
-}
-
-function renderTable(res) {
-    tbody.innerHTML = res.data.map((u, i) => {
-        const stt = (res.current_page - 1) * res.per_page + i + 1;
-        const avatar = u.avatar
-            ? (u.avatar.startsWith('http') ? u.avatar : `/storage/${u.avatar}`)
-            : `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}`;
-
-        return `
-        <tr>
-            <td class="text-center fw-bold text-muted">${stt}</td>
-            <td class="text-center">
-                <img src="${avatar}" width="48" height="48" class="rounded-circle border">
-            </td>
-            <td>
-                <div class="fw-bold">${u.name}</div>
-                <div class="small text-muted">${u.email}</div>
-            </td>
-            <td>${u.company?.name ?? '<span class="text-muted">Tự do</span>'}</td>
-            <td>
-                <span class="badge ${
-                    u.role == 0 ? 'bg-danger' :
-                    u.role == 1 ? 'bg-warning text-dark' :
-                    'bg-info'
-                }">
-                    ${u.role == 0 ? 'Super Admin' : u.role == 1 ? 'Quản lý' : 'Nhân viên'}
-                </span>
-            </td>
-            <td>
-                <span class="badge ${u.status ? 'bg-success' : 'bg-secondary'}">
-                    ${u.status ? 'Hoạt động' : 'Đã nghỉ'}
-                </span>
-            </td>
-            <td class="text-center">
-                <div class="btn-group">
-                    <a href="/users/${u.id}/attendance" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-calendar-week"></i>
-                    </a>
-                    <a href="/users/${u.id}/edit" class="btn btn-sm btn-outline-warning">
-                        <i class="bi bi-pencil"></i>
-                    </a>
-
-                    <form method="POST" action="/users/${u.id}"
-                        onsubmit="return confirm('Bạn có chắc chắn muốn xóa nhân viên này?')">
-                        <input type="hidden" name="_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="_method" value="DELETE">
-                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </form>
-                </div>
-            </td>
-
-        </tr>`;
-    }).join('');
-}
-
-function renderPagination({ current_page, last_page }) {
-    let pages = [1, current_page - 1, current_page, current_page + 1, last_page]
-        .filter(p => p > 0 && p <= last_page);
-
-    pages = [...new Set(pages)].sort((a, b) => a - b);
-
-    let html = '';
-    let prev = 0;
-
-    pages.forEach(p => {
-        if (p - prev > 1) {
-            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
-        }
-        html += `
-        <li class="page-item ${p === current_page ? 'active' : ''}">
-            <a href="#" class="page-link" data-page="${p}">${p}</a>
-        </li>`;
-        prev = p;
-    });
-
-    pagination.innerHTML = html;
-
-    pagination.querySelectorAll('a').forEach(a => {
-        a.onclick = e => {
-            e.preventDefault();
-            fetchUsers(a.dataset.page);
-        };
-    });
-}
-
-// EVENTS
-form.onsubmit = e => {
-    e.preventDefault();
-    fetchUsers(1);
-};
-
-form.querySelectorAll('select').forEach(s => {
-    s.onchange = () => fetchUsers(1);
-});
-
-document.addEventListener('DOMContentLoaded', () => fetchUsers());
-</script>
-
 @endsection

@@ -39,7 +39,7 @@ class DatabaseSeeder extends Seeder
         $companyIds = $companies->pluck('id')->toArray();
 
         // 4. CHUẨN BỊ THÔNG SỐ
-        $totalUsers = 500000;
+        $totalUsers = 50000;
         $chunkSize = 2500;
         
         $today = Carbon::now()->format('Y-m-d');
