@@ -21,7 +21,7 @@ class AuthController extends Controller
     if (!$user || !\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
         return apiError('Sai tài khoản hoặc mật khẩu', 401);
     }
-
+    $user->tokens()->delete();
     $token = $user->createToken('API Token')->plainTextToken;
 
     return apiSuccess([

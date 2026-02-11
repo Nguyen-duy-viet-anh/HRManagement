@@ -22,27 +22,11 @@ class VnpayController extends Controller
      * @param string|null $sessionId
      * @return \Illuminate\Http\RedirectResponse
      */
-    public static function createPaymentUrl(LunchOrder $order, string $paymentMethod = 'VNBANK', ?string $sessionId = null)
+    /**
+     * Lấy URL thanh toán VNPay (trả về string)
+     */
+    public static function getPaymentUrl(LunchOrder $order, string $paymentMethod = 'VNBANK', ?string $sessionId = null): string
     {
-        // Kiểm tra lại status trước khi tạo URL thanh toán (tránh race condition)
-        $order->refresh();
-        if ($order->status === 'paid') {
-            Log::warning('[VnpayController@createPaymentUrl] Đơn hàng đã thanh toán', [
-                'order_id' => $order->id,
-                'user_id' => $order->user_id
-            ]);
-            return redirect()->route('lunch.index')
-                ->with('error', 'Đơn hàng đã được thanh toán trước đó.');
-        }
-
-        Log::info('[VnpayController@createPaymentUrl] START', [
-            'order_id' => $order->id,
-            'user_id' => $order->user_id,
-            'amount' => $order->price,
-            'payment_method' => $paymentMethod,
-            'session_id' => $sessionId
-        ]);
-
         $vnp_Url = env('VNP_URL');
         $vnp_HashSecret = env('VNP_HASH_SECRET');
         $vnp_TmnCode = env('VNP_TMN_CODE');
@@ -100,11 +84,37 @@ class VnpayController extends Controller
             ]);
         }
 
-        Log::info('[VnpayController@createPaymentUrl] END - Redirect to VNPay', [
+        Log::info('[VnpayController@getPaymentUrl] Generated URL', [
             'order_id' => $order->id,
             'vnp_TxnRef' => $vnp_TxnRef,
-            'vnp_Amount' => (int)$order->price * 100
+            'url' => $vnp_Url
         ]);
+
+        return $vnp_Url;
+    }
+
+    /**
+     * Tạo URL thanh toán VNPay và Redirect (Dùng cho Web)
+     */
+    public static function createPaymentUrl(LunchOrder $order, string $paymentMethod = 'VNBANK', ?string $sessionId = null)
+    {
+        // Kiểm tra lại status trước khi tạo URL thanh toán (tránh race condition)
+        $order->refresh();
+        if ($order->status === 'paid') {
+            Log::warning('[VnpayController@createPaymentUrl] Đơn hàng đã thanh toán', [
+                'order_id' => $order->id,
+                'user_id' => $order->user_id
+            ]);
+            return redirect()->route('lunch.index')
+                ->with('error', 'Đơn hàng đã được thanh toán trước đó.');
+        }
+
+        Log::info('[VnpayController@createPaymentUrl] START', [
+            'order_id' => $order->id,
+            'payment_method' => $paymentMethod
+        ]);
+
+        $vnp_Url = self::getPaymentUrl($order, $paymentMethod, $sessionId);
 
         // Redirect kèm Header chống Cache
         return redirect($vnp_Url)

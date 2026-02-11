@@ -52,26 +52,71 @@ use Illuminate\Support\Facades\Route;
 
 
 
-// test api user
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\LunchOrderController;
+use App\Http\Controllers\Api\LunchPriceController;
+use App\Http\Controllers\Api\UserFileController;
 
-Route::prefix('users')->group(function () {
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+Route::post('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+
+Route::middleware(['auth:sanctum', 'role:0,1,2'])->prefix('users')->group(function () {
     Route::post('/list', [UserController::class, 'index']);
     Route::post('/show', [UserController::class, 'show']);
     Route::post('/create', [UserController::class, 'store']);
     Route::post('/update', [UserController::class, 'update']);
     Route::post('/delete', [UserController::class, 'destroy']);
 });
-Route::prefix('companies')->group(function () {
-    Route::post('/list',   [CompanyController::class, 'index']);  
-    Route::post('/show', [CompanyController::class, 'show']); 
-    Route::post('/create', [CompanyController::class, 'store']); 
-    Route::post('/update', [CompanyController::class, 'update']);  
+
+Route::middleware(['auth:sanctum', 'role:0'])->prefix('companies')->group(function () {
+    Route::post('/list',   [CompanyController::class, 'index']);
+    Route::post('/show',   [CompanyController::class, 'show']);
+    Route::post('/create', [CompanyController::class, 'store']);
+    Route::post('/update', [CompanyController::class, 'update']);
     Route::post('/delete', [CompanyController::class, 'destroy']);
 });
 
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
-Route::post('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+Route::middleware(['auth:sanctum', 'role:0,1,2'])->prefix('attendances')->group(function () {
+    Route::post('/list',   [AttendanceController::class, 'index']);
+    Route::post('/show',   [AttendanceController::class, 'show']);
+    Route::post('/create', [AttendanceController::class, 'store']);
+    Route::post('/update', [AttendanceController::class, 'update']);
+    Route::post('/delete', [AttendanceController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum', 'role:0,1,2'])->prefix('lunch-orders')->group(function () {
+    Route::post('/list',   [LunchOrderController::class, 'index']);
+    Route::post('/show',   [LunchOrderController::class, 'show']);
+    Route::post('/create', [LunchOrderController::class, 'store']);
+    Route::post('/repay',  [LunchOrderController::class, 'repay']);
+    Route::post('/update', [LunchOrderController::class, 'update']);
+    Route::post('/delete', [LunchOrderController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum', 'role:0'])->prefix('lunch-prices')->group(function () {
+    Route::post('/list',   [LunchPriceController::class, 'index']);
+    Route::post('/show',   [LunchPriceController::class, 'show']);
+    Route::post('/create', [LunchPriceController::class, 'store']);
+    Route::post('/update', [LunchPriceController::class, 'update']);
+    Route::post('/delete', [LunchPriceController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum', 'role:0,1,2'])->prefix('user-files')->group(function () {
+    Route::post('/list',   [UserFileController::class, 'index']);
+    Route::post('/show',   [UserFileController::class, 'show']);
+    Route::post('/upload', [UserFileController::class, 'store']);
+    Route::post('/update', [UserFileController::class, 'update']);
+    Route::post('/delete', [UserFileController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum'])->prefix('notifications')->group(function () {
+    Route::post('/list',          [\App\Http\Controllers\Api\NotificationController::class, 'index']);
+    Route::post('/read',          [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+    Route::post('/read-all',      [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
+    Route::post('/delete',        [\App\Http\Controllers\Api\NotificationController::class, 'destroy']);
+    Route::post('/unread-count',  [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+});
