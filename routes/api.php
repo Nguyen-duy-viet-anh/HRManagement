@@ -2,121 +2,111 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
-
-// Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-//     return $request->user();
-// });
-
-// // Login API - không cần auth
-// Route::post('/login', function (Request $request) {
-//     $request->validate([
-//         'email' => 'required|email',
-//         'password' => 'required',
-//     ]);
-
-//     $user = \App\Models\User::where('email', $request->email)->first();
-
-//     if (!$user || !\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
-//         return response()->json(['message' => 'Invalid credentials'], 401);
-//     }
-
-//     $token = $user->createToken('API Token')->plainTextToken;
-
-//     return response()->json([
-//         'user' => $user,
-//         'token' => $token,
-//         'token_type' => 'Bearer'
-//     ]);
-// });
-
-// // VNPay IPN - Server-to-Server callback (không cần auth)
-// Route::post('/vnpay/ipn', [\App\Http\Controllers\VnpayController::class, 'handleIPN'])->name('vnpay.ipn');
-
-// // ========================================
-// // ONEPAY PAYMENT GATEWAY ROUTES
-// // ========================================
-// // IPN (Instant Payment Notification) - Server-to-Server callback
-// // QUAN TRỌNG: Endpoint này KHÔNG cần authentication vì OnePay gọi trực tiếp
-// Route::post('/onepay/ipn', [\App\Http\Controllers\OnepayController::class, 'handleIpn'])->name('onepay.ipn');
-
-
-
-use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\SalaryController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\LunchOrderController;
 use App\Http\Controllers\Api\LunchPriceController;
 use App\Http\Controllers\Api\UserFileController;
 
+// --- ROUTE KHÔNG CẦN ĐĂNG NHẬP ---
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
-Route::post('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
 
-Route::middleware(['auth:sanctum', 'role:0,1,2'])->prefix('users')->group(function () {
-    Route::post('/list', [UserController::class, 'index']);
-    Route::post('/show', [UserController::class, 'show']);
-    Route::post('/create', [UserController::class, 'store']);
-    Route::post('/update', [UserController::class, 'update']);
-    Route::post('/delete', [UserController::class, 'destroy']);
-});
+// --- ROUTE CẦN ĐĂNG NHẬP (AUTH) ---
+Route::middleware('auth:sanctum')->group(function () {
 
-Route::middleware(['auth:sanctum', 'role:0'])->prefix('companies')->group(function () {
-    Route::post('/list',   [CompanyController::class, 'index']);
-    Route::post('/show',   [CompanyController::class, 'show']);
-    Route::post('/create', [CompanyController::class, 'store']);
-    Route::post('/update', [CompanyController::class, 'update']);
-    Route::post('/delete', [CompanyController::class, 'destroy']);
-});
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/me',     [AuthController::class, 'me']);
+    Route::post('/user-files/delete', [UserFileController::class, 'destroy']);
+    Route::post('/notifications/read',     [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
-Route::middleware(['auth:sanctum', 'role:0,1,2'])->prefix('attendances')->group(function () {
-    Route::post('/list',   [AttendanceController::class, 'index']);
-    Route::post('/show',   [AttendanceController::class, 'show']);
-    Route::post('/create', [AttendanceController::class, 'store']);
-    Route::post('/update', [AttendanceController::class, 'update']);
-    Route::post('/delete', [AttendanceController::class, 'destroy']);
-});
 
-Route::middleware(['auth:sanctum', 'role:0,1,2'])->prefix('lunch-orders')->group(function () {
-    Route::post('/list',   [LunchOrderController::class, 'index']);
-    Route::post('/show',   [LunchOrderController::class, 'show']);
-    Route::post('/create', [LunchOrderController::class, 'store']);
-    Route::post('/repay',  [LunchOrderController::class, 'repay']);
-    Route::post('/update', [LunchOrderController::class, 'update']);
-    Route::post('/delete', [LunchOrderController::class, 'destroy']);
-});
+    // NHÓM 1: CHỈ ADMIN (Role 0)
+    Route::middleware(['role:0'])->group(function () {
+        // Quản lý công ty
+        Route::post('/companies/list',   [CompanyController::class, 'index']);
+        Route::post('/companies/show',   [CompanyController::class, 'show']);
+        Route::post('/companies/create', [CompanyController::class, 'store']);
+        Route::post('/companies/delete', [CompanyController::class, 'destroy']);
 
-Route::middleware(['auth:sanctum', 'role:0'])->prefix('lunch-prices')->group(function () {
-    Route::post('/list',   [LunchPriceController::class, 'index']);
-    Route::post('/show',   [LunchPriceController::class, 'show']);
-    Route::post('/create', [LunchPriceController::class, 'store']);
-    Route::post('/update', [LunchPriceController::class, 'update']);
-    Route::post('/delete', [LunchPriceController::class, 'destroy']);
-});
+        // Thông báo
+        Route::post('/notifications/create', [NotificationController::class, 'create']);
 
-Route::middleware(['auth:sanctum', 'role:0,1,2'])->prefix('user-files')->group(function () {
-    Route::post('/list',   [UserFileController::class, 'index']);
-    Route::post('/show',   [UserFileController::class, 'show']);
-    Route::post('/upload', [UserFileController::class, 'store']);
-    Route::post('/update', [UserFileController::class, 'update']);
-    Route::post('/delete', [UserFileController::class, 'destroy']);
-});
+        // Cấu hình phiếu ăn
+        Route::post('/lunch-prices/list',   [LunchPriceController::class, 'index']);
+        Route::post('/lunch-prices/show',   [LunchPriceController::class, 'show']);
+        Route::post('/lunch-prices/create', [LunchPriceController::class, 'store']);
+        Route::post('/lunch-prices/update', [LunchPriceController::class, 'update']);
+        Route::post('/lunch-prices/delete', [LunchPriceController::class, 'destroy']);
+    });
 
-Route::middleware(['auth:sanctum'])->prefix('notifications')->group(function () {
-    Route::post('/list',          [\App\Http\Controllers\Api\NotificationController::class, 'index']);
-    Route::post('/read',          [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
-    Route::post('/read-all',      [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
-    Route::post('/delete',        [\App\Http\Controllers\Api\NotificationController::class, 'destroy']);
-    Route::post('/unread-count',  [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+    // NHÓM 2: QUẢN LÝ & ADMIN (Role 0 & 1)
+    Route::middleware(['role:0,1'])->group(function () {
+
+        // Quản lý công ty (Sửa)
+        Route::post('/companies/update', [CompanyController::class, 'update']);
+
+        // Quản lý nhân viên
+        Route::post('/users/list',   [UserController::class, 'index']);
+        Route::post('/users/show',   [UserController::class, 'show']);
+        Route::post('/users/create', [UserController::class, 'store']);
+        Route::post('/users/update', [UserController::class, 'update']);
+        Route::post('/users/delete', [UserController::class, 'destroy']);
+        Route::post('/users/files',  [UserController::class, 'userFiles']);
+
+        // Quản lý file nhân viên
+        Route::post('/user-files/list',   [UserFileController::class, 'index']);
+        Route::post('/user-files/show',   [UserFileController::class, 'show']);
+        Route::post('/user-files/upload', [UserFileController::class, 'store']);
+        Route::post('/user-files/update', [UserFileController::class, 'update']);
+
+        // Chấm công
+        Route::post('/attendances/list',            [AttendanceController::class, 'index']);
+        Route::post('/attendances/show',            [AttendanceController::class, 'show']);
+        Route::post('/attendances/create',          [AttendanceController::class, 'store']);
+        Route::post('/attendances/update',          [AttendanceController::class, 'update']);
+        Route::post('/attendances/delete',          [AttendanceController::class, 'destroy']);
+        Route::post('/attendances/user-attendance', [AttendanceController::class, 'userAttendance']);
+
+        // Lương
+        Route::post('/salary/list',   [SalaryController::class, 'index']);
+        Route::post('/salary/export', [SalaryController::class, 'export']);
+
+        // Thống kê đặt cơm trưa
+        Route::post('/lunch-orders/stats',     [LunchOrderController::class, 'stats']);
+        Route::post('/lunch-orders/user-logs', [LunchOrderController::class, 'userLogs']);
+        Route::post('/lunch-orders/all-logs',  [LunchOrderController::class, 'allLogs']);
+        Route::post('/lunch-orders/update-order', [LunchOrderController::class, 'update']);
+    });
+
+    // ==========================================================
+    // NHÓM 3: NHÂN VIÊN (Role 2)
+    // ==========================================================
+    Route::middleware(['role:2'])->group(function () {
+        Route::post('/profile/show',       [ProfileController::class, 'show']);
+        Route::post('/profile/update',     [ProfileController::class, 'update']);
+        Route::post('/profile/files',      [ProfileController::class, 'allFiles']);
+        Route::post('/profile/colleagues', [ProfileController::class, 'colleagues']);
+
+        // Chấm công cá nhân
+        Route::post('/attendances/self-check-in', [AttendanceController::class, 'selfCheckIn']);
+        Route::post('/attendances/history',       [AttendanceController::class, 'history']);
+    });
+
+    // --- ROUTE CHUNG CHO CƠM TRƯA (Tất cả user đã đăng nhập) ---
+    Route::post('/lunch-orders/list',   [LunchOrderController::class, 'index']);
+    Route::post('/lunch-orders/show',   [LunchOrderController::class, 'show']);
+    Route::post('/lunch-orders/create', [LunchOrderController::class, 'store']);
+    Route::post('/lunch-orders/repay',  [LunchOrderController::class, 'repay']);
+    Route::post('/lunch-orders/delete', [LunchOrderController::class, 'destroy']);
+
+    // Thông báo chung
+    Route::post('/notifications/list',         [NotificationController::class, 'index']);
+    Route::post('/notifications/delete',       [NotificationController::class, 'destroy']);
+    Route::post('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
 });

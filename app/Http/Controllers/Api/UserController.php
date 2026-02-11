@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\UserFile;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
@@ -92,5 +94,30 @@ class UserController extends Controller
         $user->delete();
 
         return apiSuccess(null, 'Xóa nhân viên thành công');
+    }
+
+    // POST /api/users/files
+    public function userFiles(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|uuid|exists:users,id'
+        ]);
+
+        $currentUser = $request->user();
+        $targetUser = User::find($request->user_id);
+
+        // Quản lý chỉ xem file nhân viên công ty mình
+        if ($currentUser->role == 1 && $targetUser->company_id != $currentUser->company_id) {
+            return apiError('Không có quyền xem hồ sơ nhân viên công ty khác', 403);
+        }
+
+        $files = UserFile::where('user_id', $targetUser->id)
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return apiSuccess([
+            'user' => $targetUser,
+            'files' => $files
+        ], 'Danh sách tài liệu của nhân viên');
     }
 }

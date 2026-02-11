@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
+use App\Models\User;
+use App\Notifications\SystemNotice;
+use App\Jobs\SendSystemNotificationJob;
 
 class NotificationController extends Controller
 {
@@ -17,6 +20,43 @@ class NotificationController extends Controller
         $notifications = $user->notifications()->paginate(20);
 
         return apiSuccess($notifications, 'Danh sách thông báo');
+    }
+
+    // POST /api/notifications/create
+    public function create(Request $request)
+    {
+        $data = $request->validate([
+            'user_ids' => 'nullable|array',
+            'user_ids.*' => 'uuid|exists:users,id',
+            'title' => 'required|string|max:255',
+            'message' => 'required|string',
+        ]);
+
+        // Đếm số users sẽ nhận notification (để trả về response)
+        if (empty($data['user_ids'])) {
+            $userCount = User::where('status', 1)->count();
+            $sentToAll = true;
+        } else {
+            $userCount = User::whereIn('id', $data['user_ids'])->count();
+            $sentToAll = false;
+        }
+
+        if ($userCount === 0) {
+            return apiError('Không tìm thấy user nào', 404);
+        }
+
+        // Dispatch Job để gửi notification trong background
+        SendSystemNotificationJob::dispatch(
+            $data['title'],
+            $data['message'],
+            $data['user_ids'] ?? null
+        );
+
+        return apiSuccess([
+            'sent_count' => $userCount,
+            'sent_to_all' => $sentToAll,
+            'status' => 'queued'
+        ], 'Đã đưa thông báo vào hàng đợi, sẽ gửi trong giây lát', 201);
     }
 
     // POST /api/notifications/read

@@ -210,4 +210,184 @@ class LunchOrderController extends Controller
 
         return apiSuccess(null, 'Xóa đơn đặt cơm thành công');
     }
+
+    // POST /api/lunch-orders/stats
+    public function stats(Request $request)
+    {
+        $day = $request->input('day');
+        $month = $request->input('month', date('m'));
+        $year = $request->input('year', date('Y'));
+
+        $query = LunchOrder::with('user')
+            ->where('status', 'paid')
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month);
+
+        if ($day) {
+            $query->whereDay('created_at', $day);
+        }
+
+        $totalRevenue = (clone $query)->sum('price');
+        $orders = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        // Thống kê VNPay
+        $vnpayStats = [
+            'total' => VnpayTransactionLog::whereYear('created_at', $year)->whereMonth('created_at', $month)
+                ->when($day, fn($q) => $q->whereDay('created_at', $day))->count(),
+            'success' => VnpayTransactionLog::whereYear('created_at', $year)->whereMonth('created_at', $month)
+                ->when($day, fn($q) => $q->whereDay('created_at', $day))->where('status', 'success')->count(),
+            'failed' => VnpayTransactionLog::whereYear('created_at', $year)->whereMonth('created_at', $month)
+                ->when($day, fn($q) => $q->whereDay('created_at', $day))->where('status', 'failed')->count(),
+        ];
+
+        // Thống kê OnePay
+        $onepayStats = [
+            'total' => OnepayTransactionLog::whereYear('created_at', $year)->whereMonth('created_at', $month)
+                ->when($day, fn($q) => $q->whereDay('created_at', $day))->count(),
+            'success' => OnepayTransactionLog::whereYear('created_at', $year)->whereMonth('created_at', $month)
+                ->when($day, fn($q) => $q->whereDay('created_at', $day))->where('status', 'success')->count(),
+            'failed' => OnepayTransactionLog::whereYear('created_at', $year)->whereMonth('created_at', $month)
+                ->when($day, fn($q) => $q->whereDay('created_at', $day))->where('status', 'failed')->count(),
+        ];
+
+        return apiSuccess([
+            'total_revenue' => $totalRevenue,
+            'orders' => $orders,
+            'vnpay_stats' => $vnpayStats,
+            'onepay_stats' => $onepayStats,
+            'filters' => compact('day', 'month', 'year'),
+        ], 'Thống kê đặt cơm trưa');
+    }
+
+    // POST /api/lunch-orders/user-logs
+    public function userLogs(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|uuid|exists:users,id'
+        ]);
+
+        $user = \App\Models\User::findOrFail($request->user_id);
+
+        $day = $request->input('day');
+        $month = $request->input('month', date('m'));
+        $year = $request->input('year', date('Y'));
+        $status = $request->input('status');
+
+        $query = VnpayTransactionLog::where('user_id', $request->user_id)
+            ->with('order')
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month);
+
+        if ($day) {
+            $query->whereDay('created_at', $day);
+        }
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        $logs = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        $stats = [
+            'total' => VnpayTransactionLog::where('user_id', $request->user_id)
+                ->whereYear('created_at', $year)->whereMonth('created_at', $month)
+                ->when($day, fn($q) => $q->whereDay('created_at', $day))->count(),
+            'success' => VnpayTransactionLog::where('user_id', $request->user_id)
+                ->whereYear('created_at', $year)->whereMonth('created_at', $month)
+                ->when($day, fn($q) => $q->whereDay('created_at', $day))->where('status', 'success')->count(),
+            'failed' => VnpayTransactionLog::where('user_id', $request->user_id)
+                ->whereYear('created_at', $year)->whereMonth('created_at', $month)
+                ->when($day, fn($q) => $q->whereDay('created_at', $day))->where('status', 'failed')->count(),
+        ];
+
+        return apiSuccess([
+            'user' => $user,
+            'logs' => $logs,
+            'stats' => $stats,
+            'filters' => compact('day', 'month', 'year', 'status'),
+        ], 'Log thanh toán của user');
+    }
+
+    // POST /api/lunch-orders/all-logs
+    public function allLogs(Request $request)
+    {
+        $day = $request->input('day');
+        $month = $request->input('month', date('m'));
+        $year = $request->input('year', date('Y'));
+        $status = $request->input('status');
+        $search = $request->input('search');
+        $gateway = $request->input('gateway'); // vnpay, onepay, hoặc all
+
+        // Query VNPay logs
+        $vnpayQuery = VnpayTransactionLog::with(['user', 'order'])
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month);
+
+        // Query OnePay logs
+        $onepayQuery = OnepayTransactionLog::with(['user', 'order'])
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month);
+
+        if ($day) {
+            $vnpayQuery->whereDay('created_at', $day);
+            $onepayQuery->whereDay('created_at', $day);
+        }
+
+        if ($status) {
+            $vnpayQuery->where('status', $status);
+            $onepayQuery->where('status', $status);
+        }
+
+        if ($search) {
+            $vnpayQuery->where(function($q) use ($search) {
+                $q->where('vnp_txn_ref', 'like', "%{$search}%")
+                  ->orWhere('vnp_transaction_no', 'like', "%{$search}%")
+                  ->orWhere('order_id', $search)
+                  ->orWhereHas('user', fn($q2) => $q2->where('name', 'like', "%{$search}%"));
+            });
+            $onepayQuery->where(function($q) use ($search) {
+                $q->where('txn_ref', 'like', "%{$search}%")
+                  ->orWhere('order_id', $search)
+                  ->orWhereHas('user', fn($q2) => $q2->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        // Lọc theo gateway
+        if ($gateway == 'onepay') {
+            $vnpayLogs = collect();
+            $onepayLogs = $onepayQuery->orderBy('created_at', 'desc')->get();
+        } elseif ($gateway == 'vnpay') {
+            $vnpayLogs = $vnpayQuery->orderBy('created_at', 'desc')->get();
+            $onepayLogs = collect();
+        } else {
+            $vnpayLogs = $vnpayQuery->orderBy('created_at', 'desc')->get();
+            $onepayLogs = $onepayQuery->orderBy('created_at', 'desc')->get();
+        }
+
+        // Gắn gateway label
+        $vnpayLogs->each(fn($log) => $log->gateway = 'vnpay');
+        $onepayLogs->each(fn($log) => $log->gateway = 'onepay');
+
+        $allLogs = $vnpayLogs->concat($onepayLogs)->sortByDesc('created_at')->values();
+
+        // Paginate thủ công
+        $page = $request->input('page', 1);
+        $perPage = 50;
+        $logs = new \Illuminate\Pagination\LengthAwarePaginator(
+            $allLogs->forPage($page, $perPage)->values(),
+            $allLogs->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return apiSuccess([
+            'logs' => $logs,
+            'summary' => [
+                'vnpay_count' => $vnpayLogs->count(),
+                'onepay_count' => $onepayLogs->count(),
+                'total' => $allLogs->count(),
+            ],
+            'filters' => compact('day', 'month', 'year', 'status', 'search', 'gateway'),
+        ], 'Toàn bộ log thanh toán');
+    }
 }
